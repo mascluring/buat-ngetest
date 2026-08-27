@@ -46,7 +46,7 @@ export default function PriceChangesPage() {
             </div>
             <h1 className="text-3xl font-black text-white">Perubahan Harga Pemain Hari Ini</h1>
             <p className="text-slate-400 text-sm mt-1">
-              Daftar pemain yang mengalami kenaikan atau penurunan harga pasar di Fantasy Premier League.
+              Daftar pemain yang mengalami perubahan harga pada update terkini pukul 06.00 WIB.
             </p>
           </div>
 
@@ -97,7 +97,7 @@ export default function PriceChangesPage() {
                     <div className="text-right">
                       <span className="text-xs text-slate-400 block font-mono">£{p.nowCost}m</span>
                       <span className="text-emerald-400 font-bold font-mono text-sm">
-                        +£{(p.costChangeEvent * 0.1).toFixed(1)}m ↗
+                        {p.changeAmount} ↗
                       </span>
                     </div>
                   </div>
@@ -136,7 +136,7 @@ export default function PriceChangesPage() {
                     <div className="text-right">
                       <span className="text-xs text-slate-400 block font-mono">£{p.nowCost}m</span>
                       <span className="text-rose-400 font-bold font-mono text-sm">
-                        -£{(Math.abs(p.costChangeEventFall || p.costChangeEvent) * 0.1).toFixed(1)}m ↘
+                        {p.changeAmount} ↘
                       </span>
                     </div>
                   </div>
