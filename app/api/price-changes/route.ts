@@ -28,22 +28,25 @@ export async function GET() {
         fullName: `${el.first_name} ${el.second_name}`,
         teamShortName: team.short_name || '',
         nowCost: (el.now_cost / 10).toFixed(1),
-        costChangeEvent: el.cost_change_event,
-        costChangeEventFall: el.cost_change_event_fall,
+        costChangeEvent: el.cost_change_event || 0,
+        costChangeEventFall: el.cost_change_event_fall || 0,
         selectedByPercent: el.selected_by_percent || '0.0',
         jerseyUrl,
       };
 
-      // Memeriksa pergerakan harga pada event/update terbaru FPL
+      // Pemain yang harganya naik pada Gameweek/event berjalan
       if (el.cost_change_event > 0) {
         risers.push(playerData);
-      } else if (el.cost_change_event_fall > 0 || el.cost_change_event < 0) {
+      } 
+      // Pemain yang harganya turun pada Gameweek/event berjalan
+      else if (el.cost_change_event_fall > 0 || el.cost_change_event < 0) {
         fallers.push(playerData);
       }
     });
 
+    // Urutkan nominal tertinggi ke terendah
     risers.sort((a, b) => b.costChangeEvent - a.costChangeEvent);
-    fallers.sort((a, b) => a.costChangeEventFall - b.costChangeEventFall);
+    fallers.sort((a, b) => b.costChangeEventFall - a.costChangeEventFall);
 
     return NextResponse.json({
       ok: true,
@@ -54,6 +57,9 @@ export async function GET() {
       hasChanges: risers.length > 0 || fallers.length > 0,
     });
   } catch (err: any) {
-    return NextResponse.json({ ok: false, error: err?.message || 'Gagal memuat perubahan harga' }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: err?.message || 'Gagal memuat perubahan harga' },
+      { status: 500 }
+    );
   }
 }
