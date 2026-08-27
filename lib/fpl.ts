@@ -1,46 +1,118 @@
-const FPL_BASE = 'https://fantasy.premierleague.com/api';
+export const LEAGUE_ID = 134820;
+export const FPL_LEAGUE_URL = `https://fantasy.premierleague.com/en/leagues/${LEAGUE_ID}/standings/c`;
+const BASE = 'https://fantasy.premierleague.com/api';
 
-export async function fetchFPL(endpoint: string, retries = 3, delay = 1000) {
-  for (let i = 0; i < retries; i++) {
+// Realistic browser headers to bypass Cloudflare 403 WAF checks
+const headers = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  'Accept': 'application/json, text/plain, */*',
+  'Accept-Language': 'en-US,en;q=0.9',
+  'Referer': 'https://fantasy.premierleague.com/',
+  'Origin': 'https://fantasy.premierleague.com',
+  'Cache-Control': 'no-cache',
+  'Pragma': 'no-cache',
+  'Sec-Fetch-Dest': 'empty',
+  'Sec-Fetch-Mode': 'cors',
+  'Sec-Fetch-Site': 'same-origin',
+};
+
+export type Standing = {
+  id?: number;
+  entry: number;
+  entry_name: string;
+  player_name?: string;
+  rank: number;
+  last_rank: number;
+  rank_sort: number;
+  total: number;
+  event_total: number;
+};
+
+export type LeagueResponse = {
+  league?: {
+    id: number;
+    name: string;
+    created: string;
+    closed: boolean;
+    max_entries: number | null;
+    league_type: string;
+    scoring: string;
+    start_event: number;
+    code_privacy: string;
+    admin_entry: number | null;
+  };
+  standings: { has_next: boolean; page: number; results: Standing[] };
+  new_entries?: unknown;
+};
+
+async function fplFetch<T>(path: string, revalidate = 60): Promise<T> {
+  let lastError: unknown = null;
+  for (let attempt = 1; attempt <= 3; attempt++) {
     try {
-      const res = await fetch(`${FPL_BASE}${endpoint}`, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        },
-        next: { revalidate: 60 },
+      const r = await fetch(`${BASE}${path}`, {
+        headers,
+        next: { revalidate },
       });
-      if (res.status === 403) {
-        throw new Error('403 Forbidden / Rate-limit');
+      if (!r.ok) {
+        throw new Error(`FPL API ${r.status}`);
       }
-      if (!res.ok) throw new Error(`FPL API Status ${res.status}`);
-      return await res.json();
-    } catch (err) {
-      if (i === retries - 1) throw err;
-      await new Promise(r => setTimeout(r, delay * (i + 1)));
+      return (await r.json()) as T;
+    } catch (error) {
+      lastError = error;
+      if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, 400 * attempt));
     }
   }
+  throw lastError instanceof Error ? lastError : new Error('FPL API unavailable');
 }
 
-export async function getBootstrap() {
-  return fetchFPL('/bootstrap-static/');
+export function getLeague(page = 1): Promise<LeagueResponse> {
+  return fplFetch<LeagueResponse>(`/leagues-classic/${LEAGUE_ID}/standings/?page_standings=${Math.max(1, page)}&phase=1`, 60);
 }
 
-export async function getLeagueStandings(leagueId: number, page = 1) {
-  return fetchFPL(`/leagues-classic/${leagueId}/standings/?page_standings=${page}`);
+export function getBootstrap() {
+  return fplFetch<any>('/bootstrap-static/', 120);
 }
 
-export async function getEntryPicks(entryId: number, gw: number) {
-  return fetchFPL(`/entry/${entryId}/event/${gw}/picks/`);
+export function getEntry(id: number) {
+  return fplFetch<any>(`/entry/${id}/`, 60);
 }
 
-export async function getLiveEvent(gw: number) {
-  return fetchFPL(`/event/${gw}/live/`);
+export function getEntryHistory(id: number) {
+  return fplFetch<any>(`/entry/${id}/history/`, 60);
 }
 
-export async function getEntry(entryId: number) {
-  return fetchFPL(`/entry/${entryId}/`);
+export async function getAllLeagueStandings() {
+  const first = await getLeague(1);
+  const pages: LeagueResponse[] = [first];
+  let page = 1;
+  while (pages.at(-1)?.standings?.has_next && page < 20) {
+    const nextPages = await Promise.all(
+      Array.from({ length: 4 }, async (_, i) => {
+        const next = page + i + 1;
+        if (next > 20 || !pages.at(-1)?.standings?.has_next) return null;
+        try { return await getLeague(next); } catch { return null; }
+      })
+    );
+    for (const result of nextPages) if (result) pages.push(result);
+    page = pages.length;
+    if (!pages.at(-1)?.standings?.has_next) break;
+  }
+  return { first, pages, standings: pages.flatMap((p) => p.standings?.results ?? []) };
 }
 
-export async function getEntryHistory(entryId: number) {
-  return fetchFPL(`/entry/${entryId}/history/`);
+export function getRankMovement(
+  currentGameweek: number,
+  lastRank: number | null,
+  rank: number
+): number | null {
+  if (currentGameweek <= 1 || lastRank == null) return null;
+  return lastRank - rank;
+}
+
+export function getEntryPicks(id: number, event: number) {
+  return fplFetch<any>(`/entry/${id}/event/${event}/picks/`, 60);
+}
+
+export function getLiveEvent(event: number) {
+  return fplFetch<any>(`/event/${event}/live/`, 60);
 }
