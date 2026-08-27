@@ -14,9 +14,9 @@ export async function GET(request: Request) {
     const teams = bootstrap.teams || [];
 
     let currentGwId = 1;
-    const currentEvent = events.find((e: any) => e.is_current);
-    const nextEvent = events.find((e: any) => e.is_next);
-    const activeEvent = currentEvent || nextEvent;
+    // Find the first event that is not finished (meaning all matches are not yet done)
+    // If all are somehow finished (e.g. end of season), fallback to the current or last event
+    const activeEvent = events.find((e: any) => !e.finished) || events.find((e: any) => e.is_current) || events[events.length - 1];
     
     if (activeEvent) {
       currentGwId = activeEvent.id;

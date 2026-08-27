@@ -52,6 +52,24 @@ export default function FixturesPage() {
     loadData(gw);
   }, [gw]);
 
+  const formatDeadline = (dateStr: string) => {
+    if (!dateStr) return '';
+    try {
+      const d = new Date(dateStr);
+      const formatter = new Intl.DateTimeFormat('id-ID', {
+        timeZone: 'Asia/Jakarta',
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      return `Tenggat Waktu: ${formatter.format(d).replace(/\./g, ':')} WIB`;
+    } catch {
+      return '';
+    }
+  };
+
   // Group fixtures by date
   const groupedFixtures = useMemo(() => {
     if (!data?.fixtures) return [];
@@ -60,7 +78,13 @@ export default function FixturesPage() {
     
     data.fixtures.forEach((f: any) => {
       const dateObj = new Date(f.kickoff_time);
-      const dateStr = dateObj.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+      const dateStr = dateObj.toLocaleDateString('id-ID', { 
+        timeZone: 'Asia/Jakarta', 
+        weekday: 'long', 
+        day: 'numeric', 
+        month: 'long', 
+        year: 'numeric' 
+      });
       
       if (!groups[dateStr]) groups[dateStr] = [];
       groups[dateStr].push(f);
@@ -98,6 +122,11 @@ export default function FixturesPage() {
             <p className="text-sm text-slate-400 max-w-2xl">
               Jadwal pertandingan Premier League dan hasil skor secara real-time.
             </p>
+            {data?.deadline && (
+              <p className="text-sm text-emerald-400 mt-2 font-medium bg-emerald-500/10 inline-flex px-3 py-1 rounded-md border border-emerald-500/20">
+                {formatDeadline(data.deadline)}
+              </p>
+            )}
           </div>
           
           {data?.events && (
@@ -173,7 +202,11 @@ export default function FixturesPage() {
               
               <div className="space-y-3">
                 {group.matches.map((match: any) => {
-                  const matchTime = new Date(match.kickoff_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+                  const matchTime = new Date(match.kickoff_time).toLocaleTimeString('id-ID', { 
+                    timeZone: 'Asia/Jakarta', 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                  }).replace(/\./g, ':');
                   
                   return (
                     <div key={match.id} className="card p-3 md:p-4 bg-slate-900/80 border border-slate-800 hover:border-slate-700 transition-colors flex items-center justify-between mx-auto max-w-3xl">
