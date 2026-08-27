@@ -27,8 +27,9 @@ export default function PriceChangesPage() {
     loadData();
   }, []);
 
-  const risers = data?.risers || [];
-  const fallers = data?.fallers || [];
+  // Memfilter hanya pemain yang mengalami perubahan HARI INI
+  const risersToday = (data?.risers || []).filter((p: any) => p.isToday);
+  const fallersToday = (data?.fallers || []).filter((p: any) => p.isToday);
 
   return (
     <main className="container page-shell py-8">
@@ -79,28 +80,22 @@ export default function PriceChangesPage() {
                 <TrendingUp size={20} /> Pemain Naik Harga Hari Ini
               </h2>
               <span className="bg-emerald-500/20 text-emerald-300 font-mono font-bold text-xs px-2.5 py-1 rounded-full border border-emerald-500/30">
-                {risers.length} Pemain
+                {risersToday.length} Pemain
               </span>
             </div>
 
-            {risers.length > 0 ? (
+            {risersToday.length > 0 ? (
               <div className="space-y-3">
-                {risers.map((p: any) => (
+                {risersToday.map((p: any) => (
                   <div key={p.id} className="flex items-center justify-between bg-slate-950/60 p-3 rounded-xl border border-slate-800 hover:border-emerald-500/40 transition-colors">
                     <div className="flex items-center gap-3">
                       <img src={p.jerseyUrl} alt={p.teamShortName} className="w-10 h-10 object-contain drop-shadow" />
                       <div>
                         <div className="flex items-center gap-2">
                           <b className="text-white text-sm block">{p.webName}</b>
-                          {p.isToday ? (
-                            <span className="bg-emerald-500/20 text-emerald-300 font-mono font-bold text-[10px] px-1.5 py-0.5 rounded border border-emerald-500/30">
-                              Hari Ini
-                            </span>
-                          ) : (
-                            <span className="bg-slate-700/50 text-slate-400 font-mono text-[10px] px-1.5 py-0.5 rounded border border-slate-600">
-                              Kemarin
-                            </span>
-                          )}
+                          <span className="bg-emerald-500/20 text-emerald-300 font-mono font-bold text-[10px] px-1.5 py-0.5 rounded border border-emerald-500/30">
+                            Hari Ini
+                          </span>
                         </div>
                         <small className="text-slate-400 text-xs">{p.teamShortName} • Ownership: {p.selectedByPercent}%</small>
                       </div>
@@ -129,28 +124,22 @@ export default function PriceChangesPage() {
                 <TrendingDown size={20} /> Pemain Turun Harga Hari Ini
               </h2>
               <span className="bg-rose-500/20 text-rose-300 font-mono font-bold text-xs px-2.5 py-1 rounded-full border border-rose-500/30">
-                {fallers.length} Pemain
+                {fallersToday.length} Pemain
               </span>
             </div>
 
-            {fallers.length > 0 ? (
+            {fallersToday.length > 0 ? (
               <div className="space-y-3">
-                {fallers.map((p: any) => (
+                {fallersToday.map((p: any) => (
                   <div key={p.id} className="flex items-center justify-between bg-slate-950/60 p-3 rounded-xl border border-slate-800 hover:border-rose-500/40 transition-colors">
                     <div className="flex items-center gap-3">
                       <img src={p.jerseyUrl} alt={p.teamShortName} className="w-10 h-10 object-contain drop-shadow" />
                       <div>
                         <div className="flex items-center gap-2">
                           <b className="text-white text-sm block">{p.webName}</b>
-                          {p.isToday ? (
-                            <span className="bg-rose-500/20 text-rose-300 font-mono font-bold text-[10px] px-1.5 py-0.5 rounded border border-rose-500/30">
-                              Hari Ini
-                            </span>
-                          ) : (
-                            <span className="bg-slate-700/50 text-slate-400 font-mono text-[10px] px-1.5 py-0.5 rounded border border-slate-600">
-                              Kemarin
-                            </span>
-                          )}
+                          <span className="bg-rose-500/20 text-rose-300 font-mono font-bold text-[10px] px-1.5 py-0.5 rounded border border-rose-500/30">
+                            Hari Ini
+                          </span>
                         </div>
                         <small className="text-slate-400 text-xs">{p.teamShortName} • Ownership: {p.selectedByPercent}%</small>
                       </div>
