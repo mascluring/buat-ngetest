@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/price-changes?cron=true",
+      "schedule": "5 23 * * *"
+    }
+  ]
+}
