@@ -4,34 +4,27 @@ import { createClient } from '@supabase/supabase-js';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+);
 
 export async function GET() {
   try {
-    // 1. Ambil data dari database, diurutkan dari tanggal perubahan TERBARU
     const { data: priceChanges, error } = await supabase
       .from('price_changes')
       .select('*')
       .order('change_date', { ascending: false })
       .order('id', { ascending: false });
 
-    if (error) {
-      throw new Error(`Database Error: ${error.message}`);
-    }
+    if (error) throw new Error(error.message);
 
     const risers: any[] = [];
     const fallers: any[] = [];
 
-    // 2. Format data untuk frontend
     (priceChanges || []).forEach((item: any) => {
-      // Ubah format tanggal (contoh: "2026-08-27" menjadi "27 Aug")
       const dateObj = new Date(item.change_date);
-      const formattedDate = dateObj.toLocaleDateString('id-ID', {
-        day: 'numeric',
-        month: 'short',
-      });
+      const formattedDate = dateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
 
       const playerData = {
         id: item.player_id,
@@ -39,9 +32,9 @@ export async function GET() {
         teamShortName: item.team_short_name,
         nowCost: Number(item.now_cost).toFixed(1),
         priceChange: Math.abs(Number(item.price_change)).toFixed(1),
+        selectedByPercent: item.selected_by_percent || '0.0',
+        jerseyUrl: item.jersey_url || `https://fantasy.premierleague.com/dist/img/shirts/standard/shirt_1-66.png`,
         changeDate: formattedDate,
-        rawDate: item.change_date,
-        jerseyUrl: `https://fantasy.premierleague.com/dist/img/shirts/standard/shirt_1-66.png`, // Opsional: sesuaikan jika menyimpan team_code
       };
 
       if (item.change_type === 'Riser' || item.price_change > 0) {
@@ -51,17 +44,8 @@ export async function GET() {
       }
     });
 
-    return NextResponse.json({
-      ok: true,
-      lastUpdated: new Date().toISOString(),
-      risers,
-      fallers,
-      hasChanges: risers.length > 0 || fallers.length > 0,
-    });
+    return NextResponse.json({ ok: true, risers, fallers });
   } catch (err: any) {
-    return NextResponse.json(
-      { ok: false, error: err?.message || 'Gagal memuat perubahan harga dari database' },
-      { status: 500 }
-    );
+    return NextResponse.json({ ok: false, error: err?.message }, { status: 500 });
   }
 }
