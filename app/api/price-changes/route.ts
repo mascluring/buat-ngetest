@@ -22,6 +22,11 @@ export async function GET() {
         ? `https://fantasy.premierleague.com/dist/img/shirts/standard/shirt_${teamCode}_1-66.png`
         : `https://fantasy.premierleague.com/dist/img/shirts/standard/shirt_${teamCode}-66.png`;
 
+      // CATATAN: FPL API menyediakan `cost_change_start` / `cost_change_event`. 
+      // Untuk mengecek perubahan TERKINI saja, kita cek apakah ada perubahan nilai nominal di hari ini.
+      // Jika FPL memutakhirkan harga jam 06:00 WIB, kita gunakan properti `cost_change_event` 
+      // yang bernilai persis perubahan dalam 24 jam terakhir (atau beda harga dari putaran sebelumnya).
+      
       const playerData = {
         id: el.id,
         webName: el.web_name,
@@ -34,10 +39,13 @@ export async function GET() {
         jerseyUrl,
       };
 
-      if (el.cost_change_event > 0) {
-        risers.push(playerData);
-      } else if (el.cost_change_event < 0) {
-        fallers.push(playerData);
+      // Filter hanya yang nilainya berubah pada siklus harian terakhir (contoh: delta harian = 1 / -1 setara 0.1m)
+      if (el.cost_change_event === 1 || el.cost_change_event_fall === -1) { 
+        if (el.cost_change_event > 0) {
+          risers.push(playerData);
+        } else if (el.cost_change_event_fall < 0 || el.cost_change_event < 0) {
+          fallers.push(playerData);
+        }
       }
     });
 
