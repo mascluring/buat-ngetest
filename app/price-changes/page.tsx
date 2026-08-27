@@ -44,9 +44,9 @@ export default function PriceChangesPage() {
             <div className="eyebrow text-amber-400 text-xs font-bold uppercase tracking-wider mb-1 flex items-center gap-1.5">
               <DollarSign size={14} /> FPL DAILY PRICE CHANGES
             </div>
-            <h1 className="text-3xl font-black text-white">Perubahan Harga Pemain Hari Ini</h1>
+            <h1 className="text-3xl font-black text-white">Riwayat Perubahan Harga Pemain</h1>
             <p className="text-slate-400 text-sm mt-1">
-              Daftar pemain yang mengalami kenaikan atau penurunan harga pasar di Fantasy Premier League.
+              Daftar pemain yang mengalami perubahan harga pasar FPL diurutkan dari tanggal terbaru.
             </p>
           </div>
 
@@ -69,7 +69,7 @@ export default function PriceChangesPage() {
       {loading ? (
         <div className="card text-center py-16 text-slate-400">
           <RefreshCw className="spin mx-auto mb-3" size={28} />
-          Memuat data kenaikan dan penurunan harga pemain...
+          Memuat data perubahan harga pemain...
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 my-6">
@@ -85,10 +85,9 @@ export default function PriceChangesPage() {
 
             {risers.length > 0 ? (
               <div className="space-y-3">
-                {risers.map((p: any) => (
-                  <div key={p.id} className="flex items-center justify-between bg-slate-950/60 p-3 rounded-xl border border-slate-800 hover:border-emerald-500/40 transition-colors">
+                {risers.map((p: any, idx: number) => (
+                  <div key={`${p.id}-${idx}`} className="flex items-center justify-between bg-slate-950/60 p-3 rounded-xl border border-slate-800 hover:border-emerald-500/40 transition-colors">
                     <div className="flex items-center gap-3">
-                      <img src={p.jerseyUrl} alt={p.teamShortName} className="w-10 h-10 object-contain drop-shadow" />
                       <div>
                         <div className="flex items-center gap-2">
                           {/* BADGE TANGGAL DI SEBELAH KIRI NAMA */}
@@ -97,13 +96,13 @@ export default function PriceChangesPage() {
                           </span>
                           <b className="text-white text-sm block">{p.webName}</b>
                         </div>
-                        <small className="text-slate-400 text-xs">{p.teamShortName} • Ownership: {p.selectedByPercent}%</small>
+                        <small className="text-slate-400 text-xs">{p.teamShortName}</small>
                       </div>
                     </div>
                     <div className="text-right">
                       <span className="text-xs text-slate-400 block font-mono">£{p.nowCost}m</span>
                       <span className="text-emerald-400 font-bold font-mono text-sm">
-                        +£{(p.costChangeEvent * 0.1).toFixed(1)}m ↗
+                        +£{p.priceChange}m ↗
                       </span>
                     </div>
                   </div>
@@ -112,8 +111,7 @@ export default function PriceChangesPage() {
             ) : (
               <div className="text-center py-10 bg-slate-950/40 rounded-xl border border-slate-800/60">
                 <AlertCircle size={28} className="mx-auto text-slate-500 mb-2" />
-                <p className="text-sm font-semibold text-slate-300">Tidak ada pemain yang naik harga hari ini.</p>
-                <small className="text-slate-500 block mt-1">Sistem FPL belum mencatat adanya kenaikan harga baru pada pukul 06.00 WIB.</small>
+                <p className="text-sm font-semibold text-slate-300">Belum ada riwayat kenaikan harga.</p>
               </div>
             )}
           </section>
@@ -130,10 +128,9 @@ export default function PriceChangesPage() {
 
             {fallers.length > 0 ? (
               <div className="space-y-3">
-                {fallers.map((p: any) => (
-                  <div key={p.id} className="flex items-center justify-between bg-slate-950/60 p-3 rounded-xl border border-slate-800 hover:border-rose-500/40 transition-colors">
+                {fallers.map((p: any, idx: number) => (
+                  <div key={`${p.id}-${idx}`} className="flex items-center justify-between bg-slate-950/60 p-3 rounded-xl border border-slate-800 hover:border-rose-500/40 transition-colors">
                     <div className="flex items-center gap-3">
-                      <img src={p.jerseyUrl} alt={p.teamShortName} className="w-10 h-10 object-contain drop-shadow" />
                       <div>
                         <div className="flex items-center gap-2">
                           {/* BADGE TANGGAL DI SEBELAH KIRI NAMA */}
@@ -142,13 +139,13 @@ export default function PriceChangesPage() {
                           </span>
                           <b className="text-white text-sm block">{p.webName}</b>
                         </div>
-                        <small className="text-slate-400 text-xs">{p.teamShortName} • Ownership: {p.selectedByPercent}%</small>
+                        <small className="text-slate-400 text-xs">{p.teamShortName}</small>
                       </div>
                     </div>
                     <div className="text-right">
                       <span className="text-xs text-slate-400 block font-mono">£{p.nowCost}m</span>
                       <span className="text-rose-400 font-bold font-mono text-sm">
-                        -£{(Math.abs(p.costChangeEventFall || p.costChangeEvent) * 0.1).toFixed(1)}m ↘
+                        -£{p.priceChange}m ↘
                       </span>
                     </div>
                   </div>
@@ -157,8 +154,7 @@ export default function PriceChangesPage() {
             ) : (
               <div className="text-center py-10 bg-slate-950/40 rounded-xl border border-slate-800/60">
                 <AlertCircle size={28} className="mx-auto text-slate-500 mb-2" />
-                <p className="text-sm font-semibold text-slate-300">Tidak ada pemain yang turun harga hari ini.</p>
-                <small className="text-slate-500 block mt-1">Sistem FPL belum mencatat adanya penurunan harga baru pada pukul 06.00 WIB.</small>
+                <p className="text-sm font-semibold text-slate-300">Belum ada riwayat penurunan harga.</p>
               </div>
             )}
           </section>
