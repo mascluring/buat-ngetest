@@ -1,12 +1,13 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { ArrowLeft, RefreshCw, TrendingUp, TrendingDown, DollarSign, Clock, AlertCircle } from 'lucide-react';
+import { ArrowLeft, RefreshCw, TrendingUp, TrendingDown, DollarSign, Clock, AlertCircle, Filter, Sparkles } from 'lucide-react';
 
 export default function PriceChangesPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showTodayOnly, setShowTodayOnly] = useState<boolean>(true);
 
   const loadData = async () => {
     setLoading(true);
@@ -27,8 +28,15 @@ export default function PriceChangesPage() {
     loadData();
   }, []);
 
-  const risers = data?.risers || [];
-  const fallers = data?.fallers || [];
+  const allRisers = data?.risers || [];
+  const allFallers = data?.fallers || [];
+
+  // Filter players whose price changed in the latest daily cycle (costChangeEvent === 1 or -1 or latest event change)
+  const todayRisers = allRisers.filter((p: any) => p.isTodayChange);
+  const todayFallers = allFallers.filter((p: any) => p.isTodayChange);
+
+  const risers = showTodayOnly ? todayRisers : allRisers;
+  const fallers = showTodayOnly ? todayFallers : allFallers;
 
   return (
     <main className="container page-shell py-8">
@@ -44,18 +52,49 @@ export default function PriceChangesPage() {
             <div className="eyebrow text-amber-400 text-xs font-bold uppercase tracking-wider mb-1 flex items-center gap-1.5">
               <DollarSign size={14} /> FPL DAILY PRICE CHANGES
             </div>
-            <h1 className="text-3xl font-black text-white">Perubahan Harga Pemain Hari Ini</h1>
+            <h1 className="text-3xl font-black text-white">Perubahan Harga Pemain</h1>
             <p className="text-slate-400 text-sm mt-1">
-              Daftar pemain yang mengalami kenaikan atau penurunan harga pasar di Fantasy Premier League.
+              Menampilkan data pemain yang baru saja mengalami kenaikan atau penurunan harga pasar FPL.
             </p>
           </div>
 
           <div className="bg-slate-800/80 p-3.5 rounded-xl border border-slate-700 flex items-center gap-3">
             <Clock size={18} className="text-cyan-400" />
             <div className="text-xs">
-              <span className="text-slate-400 block font-semibold">JADWAL UPDATE FPL:</span>
+              <span className="text-slate-400 block font-semibold">SCHEDULE UPDATE FPL:</span>
               <span className="text-white font-bold">Setiap Hari Pukul 06.00 WIB</span>
             </div>
+          </div>
+        </div>
+
+        {/* FILTER TOGGLE BUTTONS */}
+        <div className="mt-6 pt-4 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Filter size={15} className="text-amber-400" />
+            <span className="text-xs font-bold text-slate-300 uppercase">Tampilkan:</span>
+          </div>
+
+          <div className="flex items-center gap-2 bg-slate-950/80 p-1.5 rounded-xl border border-slate-800">
+            <button
+              onClick={() => setShowTodayOnly(true)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                showTodayOnly
+                  ? 'bg-amber-400 text-slate-950 shadow-md'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Sparkles size={13} /> Baru Hari Ini (Terbaru)
+            </button>
+            <button
+              onClick={() => setShowTodayOnly(false)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                !showTodayOnly
+                  ? 'bg-amber-400 text-slate-950 shadow-md'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Semua Perubahan Gameweek Ini
+            </button>
           </div>
         </div>
       </header>
@@ -69,14 +108,15 @@ export default function PriceChangesPage() {
       {loading ? (
         <div className="card text-center py-16 text-slate-400">
           <RefreshCw className="spin mx-auto mb-3" size={28} />
-          Memuat data kenaikan dan penurunan harga pemain...
+          Memuat data pergerakan harga pemain terbaru...
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 my-6">
+          {/* NAIK HARGA */}
           <section className="card p-6 border-emerald-500/30">
             <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
               <h2 className="text-lg font-bold text-emerald-400 flex items-center gap-2">
-                <TrendingUp size={20} /> Pemain Naik Harga Hari Ini
+                <TrendingUp size={20} /> Pemain Naik Harga {showTodayOnly ? 'Hari Ini' : ''}
               </h2>
               <span className="bg-emerald-500/20 text-emerald-300 font-mono font-bold text-xs px-2.5 py-1 rounded-full border border-emerald-500/30">
                 {risers.length} Pemain
@@ -90,7 +130,18 @@ export default function PriceChangesPage() {
                     <div className="flex items-center gap-3">
                       <img src={p.jerseyUrl} alt={p.teamShortName} className="w-10 h-10 object-contain drop-shadow" />
                       <div>
-                        <b className="text-white text-sm block">{p.webName}</b>
+                        <div className="flex items-center gap-2">
+                          <b className="text-white text-sm block">{p.webName}</b>
+                          {p.isTodayChange ? (
+                            <span className="bg-emerald-500/30 text-emerald-300 text-[10px] font-black px-1.5 py-0.5 rounded border border-emerald-400/40">
+                              HARI INI
+                            </span>
+                          ) : (
+                            <span className="bg-slate-800 text-slate-400 text-[10px] font-medium px-1.5 py-0.5 rounded">
+                              SEBELUMNYA
+                            </span>
+                          )}
+                        </div>
                         <small className="text-slate-400 text-xs">{p.teamShortName} • Ownership: {p.selectedByPercent}%</small>
                       </div>
                     </div>
@@ -106,16 +157,21 @@ export default function PriceChangesPage() {
             ) : (
               <div className="text-center py-10 bg-slate-950/40 rounded-xl border border-slate-800/60">
                 <AlertCircle size={28} className="mx-auto text-slate-500 mb-2" />
-                <p className="text-sm font-semibold text-slate-300">Tidak ada pemain yang naik harga hari ini.</p>
-                <small className="text-slate-500 block mt-1">Sistem FPL belum mencatat adanya kenaikan harga baru pada pukul 06.00 WIB.</small>
+                <p className="text-sm font-semibold text-slate-300">
+                  {showTodayOnly
+                    ? 'Tidak ada pergerakan naik harga baru pada update pukul 06.00 WIB hari ini.'
+                    : 'Tidak ada pemain yang naik harga.'}
+                </p>
+                <small className="text-slate-500 block mt-1">Sistem FPL memperbarui harga setiap hari pukul 06.00 WIB.</small>
               </div>
             )}
           </section>
 
+          {/* TURUN HARGA */}
           <section className="card p-6 border-rose-500/30">
             <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
               <h2 className="text-lg font-bold text-rose-400 flex items-center gap-2">
-                <TrendingDown size={20} /> Pemain Turun Harga Hari Ini
+                <TrendingDown size={20} /> Pemain Turun Harga {showTodayOnly ? 'Hari Ini' : ''}
               </h2>
               <span className="bg-rose-500/20 text-rose-300 font-mono font-bold text-xs px-2.5 py-1 rounded-full border border-rose-500/30">
                 {fallers.length} Pemain
@@ -129,7 +185,18 @@ export default function PriceChangesPage() {
                     <div className="flex items-center gap-3">
                       <img src={p.jerseyUrl} alt={p.teamShortName} className="w-10 h-10 object-contain drop-shadow" />
                       <div>
-                        <b className="text-white text-sm block">{p.webName}</b>
+                        <div className="flex items-center gap-2">
+                          <b className="text-white text-sm block">{p.webName}</b>
+                          {p.isTodayChange ? (
+                            <span className="bg-rose-500/30 text-rose-300 text-[10px] font-black px-1.5 py-0.5 rounded border border-rose-400/40">
+                              HARI INI
+                            </span>
+                          ) : (
+                            <span className="bg-slate-800 text-slate-400 text-[10px] font-medium px-1.5 py-0.5 rounded">
+                              SEBELUMNYA
+                            </span>
+                          )}
+                        </div>
                         <small className="text-slate-400 text-xs">{p.teamShortName} • Ownership: {p.selectedByPercent}%</small>
                       </div>
                     </div>
@@ -145,8 +212,12 @@ export default function PriceChangesPage() {
             ) : (
               <div className="text-center py-10 bg-slate-950/40 rounded-xl border border-slate-800/60">
                 <AlertCircle size={28} className="mx-auto text-slate-500 mb-2" />
-                <p className="text-sm font-semibold text-slate-300">Tidak ada pemain yang turun harga hari ini.</p>
-                <small className="text-slate-500 block mt-1">Sistem FPL belum mencatat adanya penurunan harga baru pada pukul 06.00 WIB.</small>
+                <p className="text-sm font-semibold text-slate-300">
+                  {showTodayOnly
+                    ? 'Tidak ada pergerakan turun harga baru pada update pukul 06.00 WIB hari ini.'
+                    : 'Tidak ada pemain yang turun harga.'}
+                </p>
+                <small className="text-slate-500 block mt-1">Sistem FPL memperbarui harga setiap hari pukul 06.00 WIB.</small>
               </div>
             )}
           </section>
