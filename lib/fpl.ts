@@ -131,3 +131,8 @@ export function getEntryPicks(id: number, event: number) {
 export function getLiveEvent(event: number) {
   return fplFetch<any>(`/event/${event}/live/`, 60);
 }
+
+export function getFixtures(event?: number) {
+  const path = event ? `/fixtures/?event=${event}` : '/fixtures/';
+  return fplFetch<any[]>(path, 60);
+}
