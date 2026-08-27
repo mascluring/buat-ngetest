@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, Crown, Medal, RefreshCw, Search, Trophy, Users, Zap, BarChart3, Sparkles, X, ChevronDown, ChevronUp, TrendingUp, Clock, Calendar } from 'lucide-react';
+import { ArrowDown, ArrowUp, Crown, Medal, RefreshCw, Search, Trophy, Users, Zap, BarChart3, Sparkles, X, ChevronDown, ChevronUp, TrendingUp } from 'lucide-react';
 
 const fmt=(n:number)=>new Intl.NumberFormat('id-ID').format(n);
 const initials=(name:string)=>name.split(' ').filter(Boolean).map(x=>x[0]).slice(0,2).join('').toUpperCase();
@@ -27,47 +27,15 @@ type Detail={
   totalGamesCount:number;
   picksList?:PickPlayer[];
 };
-type NextGW = {
-  id: number;
-  name: string;
-  deadlineTime: string;
-  isNext?: boolean;
-};
-type Data={league:any;standings:Row[];details?:Record<number,Detail>;hasNext:boolean;page:number;current:number;nextGW?:NextGW};
+type Data={league:any;standings:Row[];details?:Record<number,Detail>;hasNext:boolean;page:number;current:number};
 
 export default function Home(){
  const [data,setData]=useState<Data|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState(''),[query,setQuery]=useState(''),[page,setPage]=useState(1),[sort,setSort]=useState<'rank'|'gw'|'total'|'move'>('rank');
  const [expandedEntry, setExpandedEntry] = useState<number|null>(null);
  const [viewMode, setViewMode] = useState<'pitch'|'list'>('pitch');
- const [timeLeft, setTimeLeft] = useState<{ days: number; hours: number; mins: number; secs: number } | null>(null);
 
  const load=async(p=page)=>{setLoading(true);setError('');try{const r=await fetch(`/api/league-picks?page=${p}`,{cache:'no-store'});const json=await r.json().catch(()=>null);if(!r.ok||!json?.ok)throw new Error(json?.error||`API error ${r.status}`);setData(json)}catch(e:any){setError(e?.message||'Data FPL tidak dapat dimuat');setData(null)}finally{setLoading(false)}};
  useEffect(()=>{load(page)},[page]);
-
- // Countdown Timer Effect
- useEffect(() => {
-   if (!data?.nextGW?.deadlineTime) return;
-   const deadline = new Date(data.nextGW.deadlineTime).getTime();
-
-   const updateTimer = () => {
-     const now = new Date().getTime();
-     const diff = deadline - now;
-     if (diff <= 0) {
-       setTimeLeft({ days: 0, hours: 0, mins: 0, secs: 0 });
-     } else {
-       const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-       const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-       const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-       const secs = Math.floor((diff % (1000 * 60)) / 1000);
-       setTimeLeft({ days, hours, mins, secs });
-     }
-   };
-
-   updateTimer();
-   const interval = setInterval(updateTimer, 1000);
-   return () => clearInterval(interval);
- }, [data?.nextGW?.deadlineTime]);
-
  const movementReady=(data?.current??1)>=2;
  const movement=(r:Row)=>movementReady ? r.last_rank-r.rank : null;
  const rows=useMemo(()=>{const q=query.trim().toLowerCase();const a=(data?.standings??[]).filter(r=>`${r.player_name} ${r.entry_name}`.toLowerCase().includes(q));return [...a].sort((x,y)=>sort==='gw'?y.event_total-x.event_total:sort==='total'?y.total-x.total:sort==='move'?((movement(y)??0)-(movement(x)??0)):x.rank-y.rank)},[data,query,sort]);
@@ -81,61 +49,10 @@ export default function Home(){
    setExpandedEntry(prev => prev === entryId ? null : entryId);
  };
 
- const nextGW = data?.nextGW;
- const deadlineFormatted = nextGW?.deadlineTime 
-   ? new Date(nextGW.deadlineTime).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })
-   : null;
-
  return <main>
   <section className="hero"><div className="hero-orb orb-one"/><div className="hero-orb orb-two"/><div className="container hero-inner">
    <div className="hero-top"><div className="brand-pill"><Trophy size={15}/> FANTASY PREMIER LEAGUE</div><div className="id-pill">LEAGUE ID <b>134820</b></div></div>
-   <div className="hero-copy"><div className="eyebrow">2026 / 27 • CLASSIC LEAGUE • V5.6.0</div><h1>ERA <span>SUPER</span> LEAGUE</h1><p>Command center untuk memantau klasemen, momentum ranking, performa Gameweek, dan manager terbaik dalam satu dashboard.</p></div>
-
-   {/* DEADLINE BANNER FEATURE */}
-   {nextGW && (
-     <div className="my-6 p-4 rounded-2xl bg-gradient-to-r from-purple-900/90 via-indigo-900/90 to-slate-900/90 border border-purple-500/40 shadow-xl backdrop-blur-md">
-       <div className="flex flex-wrap items-center justify-between gap-4">
-         <div className="flex items-center gap-3">
-           <div className="p-3 bg-purple-600/30 rounded-xl border border-purple-400/30 text-purple-300">
-             <Clock size={24} className="animate-pulse" />
-           </div>
-           <div>
-             <div className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
-               <Calendar size={13} /> NEXT GAMEWEEK DEADLINE
-             </div>
-             <div className="text-lg font-black text-white">{nextGW.name} Deadline</div>
-             <div className="text-xs text-purple-200 mt-0.5">{deadlineFormatted || '—'}</div>
-           </div>
-         </div>
-
-         {/* COUNTDOWN BOXES */}
-         {timeLeft && (
-           <div className="flex items-center gap-2 text-center font-mono">
-             <div className="bg-slate-950/80 px-3 py-1.5 rounded-lg border border-purple-500/30 min-w-[50px]">
-               <span className="block text-lg font-black text-amber-400">{timeLeft.days}</span>
-               <span className="text-[10px] text-slate-400 font-sans uppercase">HARI</span>
-             </div>
-             <span className="text-amber-400 font-bold">:</span>
-             <div className="bg-slate-950/80 px-3 py-1.5 rounded-lg border border-purple-500/30 min-w-[50px]">
-               <span className="block text-lg font-black text-amber-400">{String(timeLeft.hours).padStart(2, '0')}</span>
-               <span className="text-[10px] text-slate-400 font-sans uppercase">JAM</span>
-             </div>
-             <span className="text-amber-400 font-bold">:</span>
-             <div className="bg-slate-950/80 px-3 py-1.5 rounded-lg border border-purple-500/30 min-w-[50px]">
-               <span className="block text-lg font-black text-amber-400">{String(timeLeft.mins).padStart(2, '0')}</span>
-               <span className="text-[10px] text-slate-400 font-sans uppercase">MENIT</span>
-             </div>
-             <span className="text-amber-400 font-bold">:</span>
-             <div className="bg-slate-950/80 px-3 py-1.5 rounded-lg border border-purple-500/30 min-w-[50px]">
-               <span className="block text-lg font-black text-amber-400">{String(timeLeft.secs).padStart(2, '0')}</span>
-               <span className="text-[10px] text-slate-400 font-sans uppercase">DETIK</span>
-             </div>
-           </div>
-         )}
-       </div>
-     </div>
-   )}
-
+   <div className="hero-copy"><div className="eyebrow">2026 / 27 • CLASSIC LEAGUE • V5.5.2</div><h1>ERA <span>SUPER</span> LEAGUE</h1><p>Command center untuk memantau klasemen, momentum ranking, performa Gameweek, dan manager terbaik dalam satu dashboard.</p></div>
    <div className="hero-meta"><span><i/> Live FPL Data</span><span>Gameweek {data?.current??'—'}</span><span>FPL API • retry 3x</span></div>
   </div></section>
   <div className="container page-shell">
@@ -250,12 +167,13 @@ export default function Home(){
     </table></div>
     <div className="pager"><span>Halaman <b>{page}</b>{data?.hasNext?' • lanjut untuk melihat 50 berikutnya':''}</span><div><button disabled={page===1||loading} onClick={()=>setPage(p=>Math.max(1,p-1))}>← Prev</button><button disabled={!data?.hasNext||loading} onClick={()=>setPage(p=>p+1)}>Next →</button><button className="refresh" onClick={()=>load(page)} disabled={loading}><RefreshCw size={14} className={loading?'spin':''}/> Refresh</button></div></div>
    </section>
-   <div className="v3-note"><Sparkles size={16}/><div><b>V5.6.0 Interactive Pitch View & Deadline Tracker</b><span>Formasi dapat diklik langsung untuk membuka visual pitch view lapangan dan penghitung mundur deadline Gameweek.</span></div></div>
+   <div className="v3-note"><Sparkles size={16}/><div><b>V5.5.2 Interactive Pitch View</b><span>Formasi dapat diklik langsung untuk membuka visual pitch view lapangan dan perhitungan poin real-time.</span></div></div>
    <footer>ERA SUPER LEAGUE • FPL Dashboard • League ID 134820 • Data from Fantasy Premier League</footer>
   </div>
  </main>
 }
 
+// Komponen Pitch View Lapangan Hijau persis seperti gambar FPL
 function PitchView({ detail, picksList }: { detail?: Detail; picksList: PickPlayer[] }) {
   const starters = picksList.filter(p => p.position <= 11);
   const bench = picksList.filter(p => p.position > 11);
@@ -267,26 +185,32 @@ function PitchView({ detail, picksList }: { detail?: Detail; picksList: PickPlay
 
   return (
     <div className="fpl-pitch relative rounded-2xl overflow-hidden p-6 border-2 border-emerald-400/40 shadow-2xl bg-gradient-to-b from-emerald-600 via-emerald-700 to-emerald-800">
+      {/* Garis Lapangan */}
       <div className="pitch-line pitch-goal-top" />
       <div className="pitch-line pitch-box-top" />
       <div className="pitch-line pitch-center-circle" />
 
+      {/* GKP */}
       <div className="flex justify-center my-3 relative z-10">
         {gkp.map(p => <PlayerCard key={p.id} player={p} />)}
       </div>
 
+      {/* DEF */}
       <div className="flex justify-around my-4 relative z-10">
         {def.map(p => <PlayerCard key={p.id} player={p} />)}
       </div>
 
+      {/* MID */}
       <div className="flex justify-around my-4 relative z-10">
         {mid.map(p => <PlayerCard key={p.id} player={p} />)}
       </div>
 
+      {/* FWD */}
       <div className="flex justify-around my-4 relative z-10">
         {fwd.map(p => <PlayerCard key={p.id} player={p} />)}
       </div>
 
+      {/* BENCH SECTION */}
       {bench.length > 0 && (
         <div className="mt-8 pt-4 border-t border-emerald-300/30 relative z-10 bg-black/40 rounded-xl p-3">
           <div className="text-xs uppercase font-bold text-emerald-200 mb-2">BENCH PLAYERS ({detail?.benchPoints || 0} PTS)</div>
