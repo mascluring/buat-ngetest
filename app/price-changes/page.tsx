@@ -46,7 +46,7 @@ export default function PriceChangesPage() {
             </div>
             <h1 className="text-3xl font-black text-white">Perubahan Harga Pemain Hari Ini</h1>
             <p className="text-slate-400 text-sm mt-1">
-              Daftar pemain yang mengalami kenaikan atau penurunan harga pasar di Fantasy Premier League.
+              Menampilkan khusus pemain yang baru saja mengalami perubahan harga pasar hari ini.
             </p>
           </div>
 
@@ -73,6 +73,7 @@ export default function PriceChangesPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 my-6">
+          {/* SECTION RISERS */}
           <section className="card p-6 border-emerald-500/30">
             <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
               <h2 className="text-lg font-bold text-emerald-400 flex items-center gap-2">
@@ -90,14 +91,17 @@ export default function PriceChangesPage() {
                     <div className="flex items-center gap-3">
                       <img src={p.jerseyUrl} alt={p.teamShortName} className="w-10 h-10 object-contain drop-shadow" />
                       <div>
-                        <b className="text-white text-sm block">{p.webName}</b>
+                        <div className="flex items-center gap-2">
+                          <b className="text-white text-sm block">{p.webName}</b>
+                          <span className="px-1.5 py-0.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded text-[10px] font-bold">BARU</span>
+                        </div>
                         <small className="text-slate-400 text-xs">{p.teamShortName} • Ownership: {p.selectedByPercent}%</small>
                       </div>
                     </div>
                     <div className="text-right">
                       <span className="text-xs text-slate-400 block font-mono">£{p.nowCost}m</span>
                       <span className="text-emerald-400 font-bold font-mono text-sm">
-                        +£{(p.costChangeEvent * 0.1).toFixed(1)}m ↗
+                        +£{p.priceDiff}m ↗
                       </span>
                     </div>
                   </div>
@@ -106,12 +110,13 @@ export default function PriceChangesPage() {
             ) : (
               <div className="text-center py-10 bg-slate-950/40 rounded-xl border border-slate-800/60">
                 <AlertCircle size={28} className="mx-auto text-slate-500 mb-2" />
-                <p className="text-sm font-semibold text-slate-300">Tidak ada pemain yang naik harga hari ini.</p>
-                <small className="text-slate-500 block mt-1">Sistem FPL belum mencatat adanya kenaikan harga baru pada pukul 06.00 WIB.</small>
+                <p className="text-sm font-semibold text-slate-300">Tidak ada kenaikan harga baru hari ini.</p>
+                <small className="text-slate-500 block mt-1">Perubahan dari hari sebelumnya disembunyikan.</small>
               </div>
             )}
           </section>
 
+          {/* SECTION FALLERS */}
           <section className="card p-6 border-rose-500/30">
             <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
               <h2 className="text-lg font-bold text-rose-400 flex items-center gap-2">
@@ -129,14 +134,17 @@ export default function PriceChangesPage() {
                     <div className="flex items-center gap-3">
                       <img src={p.jerseyUrl} alt={p.teamShortName} className="w-10 h-10 object-contain drop-shadow" />
                       <div>
-                        <b className="text-white text-sm block">{p.webName}</b>
+                        <div className="flex items-center gap-2">
+                          <b className="text-white text-sm block">{p.webName}</b>
+                          <span className="px-1.5 py-0.5 bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded text-[10px] font-bold">BARU</span>
+                        </div>
                         <small className="text-slate-400 text-xs">{p.teamShortName} • Ownership: {p.selectedByPercent}%</small>
                       </div>
                     </div>
                     <div className="text-right">
                       <span className="text-xs text-slate-400 block font-mono">£{p.nowCost}m</span>
                       <span className="text-rose-400 font-bold font-mono text-sm">
-                        -£{(Math.abs(p.costChangeEvent) * 0.1).toFixed(1)}m ↘
+                        -£{p.priceDiff}m ↘
                       </span>
                     </div>
                   </div>
@@ -145,8 +153,8 @@ export default function PriceChangesPage() {
             ) : (
               <div className="text-center py-10 bg-slate-950/40 rounded-xl border border-slate-800/60">
                 <AlertCircle size={28} className="mx-auto text-slate-500 mb-2" />
-                <p className="text-sm font-semibold text-slate-300">Tidak ada pemain yang turun harga hari ini.</p>
-                <small className="text-slate-500 block mt-1">Sistem FPL belum mencatat adanya penurunan harga baru pada pukul 06.00 WIB.</small>
+                <p className="text-sm font-semibold text-slate-300">Tidak ada penurunan harga baru hari ini.</p>
+                <small className="text-slate-500 block mt-1">Perubahan dari hari sebelumnya disembunyikan.</small>
               </div>
             )}
           </section>
