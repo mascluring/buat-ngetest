@@ -83,12 +83,46 @@ export default function PriceChangesPage() {
               </span>
             </div>
 
+
+            
+            
             {risers.length > 0 ? (
               <div className="space-y-3">
                 {risers.map((p: any) => (
                   <div key={p.id} className="flex items-center justify-between bg-slate-950/60 p-3 rounded-xl border border-slate-800 hover:border-emerald-500/40 transition-colors">
                     <div className="flex items-center gap-3">
                       <img src={p.jerseyUrl} alt={p.teamShortName} className="w-10 h-10 object-contain drop-shadow" />
+
+                      {risers.map((p: any) => (
+  <div key={p.id} className="flex items-center justify-between bg-slate-950/60 p-3 rounded-xl border border-slate-800 hover:border-emerald-500/40 transition-colors">
+    <div className="flex items-center gap-3">
+      <img src={p.jerseyUrl} alt={p.teamShortName} className="w-10 h-10 object-contain drop-shadow" />
+      <div>
+        {/* SISIPKAN DI BAGIAN INI */}
+        <div className="flex items-center gap-2">
+          <b className="text-white text-sm block">{p.webName}</b>
+          {p.isToday ? (
+            <span className="bg-emerald-500/20 text-emerald-300 font-mono font-bold text-[10px] px-1.5 py-0.5 rounded border border-emerald-500/30">
+              Hari Ini
+            </span>
+          ) : (
+            <span className="bg-slate-700/50 text-slate-400 font-mono text-[10px] px-1.5 py-0.5 rounded border border-slate-600">
+              Kemarin
+            </span>
+          )}
+        </div>
+        <small className="text-slate-400 text-xs">{p.teamShortName} • Ownership: {p.selectedByPercent}%</small>
+      </div>
+    </div>
+    <div className="text-right">
+      <span className="text-xs text-slate-400 block font-mono">£{p.nowCost}m</span>
+      <span className="text-emerald-400 font-bold font-mono text-sm">
+        +£{(p.costChangeEvent * 0.1).toFixed(1)}m ↗
+      </span>
+    </div>
+  </div>
+))}
+                      
                       <div>
                         <b className="text-white text-sm block">{p.webName}</b>
                         <small className="text-slate-400 text-xs">{p.teamShortName} • Ownership: {p.selectedByPercent}%</small>
