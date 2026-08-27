@@ -40,15 +40,18 @@ export type LeagueResponse = {
   new_entries?: unknown;
 };
 
-async function fplFetch<T>(path: string, revalidate = 60): Promise<T> {
+async function fplFetch<T>(path: string, revalidate = 60, noCache = false): Promise<T> {
   let lastError: unknown = null;
   
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
-      const r = await fetch(`${BASE}${path}`, {
-        headers,
-        next: { revalidate },
-      });
+      const fetchOpts: RequestInit = { headers };
+      if (noCache) {
+        fetchOpts.cache = 'no-store';
+      } else {
+        fetchOpts.next = { revalidate };
+      }
+      const r = await fetch(`${BASE}${path}`, fetchOpts);
 
       if (!r.ok) {
         throw new Error(`FPL API ${r.status}`);
@@ -74,7 +77,7 @@ export function getLeague(page = 1): Promise<LeagueResponse> {
 }
 
 export function getBootstrap() {
-  return fplFetch<any>('/bootstrap-static/', 120);
+  return fplFetch<any>('/bootstrap-static/', 60, true);
 }
 
 export function getEntry(id: number) {

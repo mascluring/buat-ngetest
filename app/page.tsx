@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, Fragment } from 'react';
 import { ArrowDown, ArrowUp, Crown, Medal, RefreshCw, Search, Trophy, Users, Zap, BarChart3, Sparkles, X, ChevronDown, ChevronUp, TrendingUp } from 'lucide-react';
 
 const fmt=(n:number)=>new Intl.NumberFormat('id-ID').format(n);
@@ -91,8 +91,8 @@ export default function Home(){
         const isExpanded = expandedEntry === r.entry;
         
         return (
-         <>
-         <tr key={r.entry} className={`${r.rank<=3?'podium-row':''} ${isExpanded?'bg-slate-800/80':''}`}>
+         <Fragment key={r.entry}>
+         <tr className={`${r.rank<=3?'podium-row':''} ${isExpanded?'bg-slate-800/80':''}`}>
           <td className="pos text-center">{r.rank===1?<Medal className="gold"/>:r.rank===2?<Medal className="silver"/>:r.rank===3?<Medal className="bronze"/>:<b>{r.rank}</b>}</td>
           <td>
            <div className="manager">
@@ -160,7 +160,7 @@ export default function Home(){
              </td>
            </tr>
          )}
-         </>
+         </Fragment>
         );
       })}{!loading&&!rows.length&&<tr><td colSpan={10} className="empty">Tidak ada manager yang cocok.</td></tr>}
      </tbody>

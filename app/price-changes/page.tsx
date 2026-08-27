@@ -3,6 +3,28 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { ArrowLeft, RefreshCw, TrendingUp, TrendingDown, DollarSign, Clock, AlertCircle, Calendar } from 'lucide-react';
 
+const getTeamShirtUrl = (shortName: string) => {
+  const teamCodes: Record<string, string> = {
+    ARS: '3', AVL: '7', BOU: '91', BRE: '94', BHA: '36',
+    CHE: '8', COV: '9', CRY: '31', EVE: '11', FUL: '54',
+    HUL: '88', IPS: '40', LEE: '2', LIV: '14', MCI: '43',
+    MUN: '1', NEW: '4', NFO: '17', TOT: '6', SUN: '56'
+  };
+  const code = teamCodes[shortName?.toUpperCase()] || '1';
+  return `https://fantasy.premierleague.com/dist/img/shirts/standard/shirt_${code}-66.png`;
+};
+
+function TeamShirt({ team }: { team: string }) {
+  return (
+    <img 
+      src={getTeamShirtUrl(team)} 
+      alt={team} 
+      className="w-10 h-10 object-contain drop-shadow-md" 
+      loading="lazy" 
+    />
+  );
+}
+
 export default function PriceChangesPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -70,7 +92,7 @@ export default function PriceChangesPage() {
                 {risers.map((p: any, idx: number) => (
                   <div key={`${p.id}-${idx}`} className="flex items-center justify-between bg-slate-950/60 p-3 rounded-xl border border-slate-800 hover:border-emerald-500/40 transition-colors">
                     <div className="flex items-center gap-3">
-                      <img src={p.jerseyUrl} alt={p.teamShortName} className="w-10 h-10 object-contain drop-shadow" />
+                      <TeamShirt team={p.teamShortName} />
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="bg-slate-800 text-slate-300 text-[10px] font-mono px-2 py-0.5 rounded border border-slate-700 flex items-center gap-1">
@@ -101,7 +123,7 @@ export default function PriceChangesPage() {
                 {fallers.map((p: any, idx: number) => (
                   <div key={`${p.id}-${idx}`} className="flex items-center justify-between bg-slate-950/60 p-3 rounded-xl border border-slate-800 hover:border-rose-500/40 transition-colors">
                     <div className="flex items-center gap-3">
-                      <img src={p.jerseyUrl} alt={p.teamShortName} className="w-10 h-10 object-contain drop-shadow" />
+                      <TeamShirt team={p.teamShortName} />
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="bg-slate-800 text-slate-300 text-[10px] font-mono px-2 py-0.5 rounded border border-slate-700 flex items-center gap-1">
