@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { ArrowLeft, RefreshCw, TrendingUp, TrendingDown, DollarSign, Clock, AlertCircle } from 'lucide-react';
+import { ArrowLeft, RefreshCw, TrendingUp, TrendingDown, DollarSign, Clock, AlertCircle, Calendar } from 'lucide-react';
 
 export default function PriceChangesPage() {
   const [data, setData] = useState<any>(null);
@@ -46,7 +46,7 @@ export default function PriceChangesPage() {
             </div>
             <h1 className="text-3xl font-black text-white">Perubahan Harga Pemain Hari Ini</h1>
             <p className="text-slate-400 text-sm mt-1">
-              Daftar pemain yang mengalami perubahan harga pada update terkini pukul 06.00 WIB.
+              Daftar pemain yang mengalami kenaikan atau penurunan harga pasar di Fantasy Premier League.
             </p>
           </div>
 
@@ -76,7 +76,7 @@ export default function PriceChangesPage() {
           <section className="card p-6 border-emerald-500/30">
             <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
               <h2 className="text-lg font-bold text-emerald-400 flex items-center gap-2">
-                <TrendingUp size={20} /> Pemain Naik Harga Hari Ini
+                <TrendingUp size={20} /> Pemain Naik Harga
               </h2>
               <span className="bg-emerald-500/20 text-emerald-300 font-mono font-bold text-xs px-2.5 py-1 rounded-full border border-emerald-500/30">
                 {risers.length} Pemain
@@ -90,14 +90,20 @@ export default function PriceChangesPage() {
                     <div className="flex items-center gap-3">
                       <img src={p.jerseyUrl} alt={p.teamShortName} className="w-10 h-10 object-contain drop-shadow" />
                       <div>
-                        <b className="text-white text-sm block">{p.webName}</b>
+                        <div className="flex items-center gap-2">
+                          {/* BADGE TANGGAL DI SEBELAH KIRI NAMA */}
+                          <span className="bg-slate-800 text-slate-300 text-[10px] font-mono px-2 py-0.5 rounded border border-slate-700 flex items-center gap-1">
+                            <Calendar size={10} /> {p.changeDate}
+                          </span>
+                          <b className="text-white text-sm block">{p.webName}</b>
+                        </div>
                         <small className="text-slate-400 text-xs">{p.teamShortName} • Ownership: {p.selectedByPercent}%</small>
                       </div>
                     </div>
                     <div className="text-right">
                       <span className="text-xs text-slate-400 block font-mono">£{p.nowCost}m</span>
                       <span className="text-emerald-400 font-bold font-mono text-sm">
-                        {p.changeAmount} ↗
+                        +£{(p.costChangeEvent * 0.1).toFixed(1)}m ↗
                       </span>
                     </div>
                   </div>
@@ -115,7 +121,7 @@ export default function PriceChangesPage() {
           <section className="card p-6 border-rose-500/30">
             <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
               <h2 className="text-lg font-bold text-rose-400 flex items-center gap-2">
-                <TrendingDown size={20} /> Pemain Turun Harga Hari Ini
+                <TrendingDown size={20} /> Pemain Turun Harga
               </h2>
               <span className="bg-rose-500/20 text-rose-300 font-mono font-bold text-xs px-2.5 py-1 rounded-full border border-rose-500/30">
                 {fallers.length} Pemain
@@ -129,14 +135,20 @@ export default function PriceChangesPage() {
                     <div className="flex items-center gap-3">
                       <img src={p.jerseyUrl} alt={p.teamShortName} className="w-10 h-10 object-contain drop-shadow" />
                       <div>
-                        <b className="text-white text-sm block">{p.webName}</b>
+                        <div className="flex items-center gap-2">
+                          {/* BADGE TANGGAL DI SEBELAH KIRI NAMA */}
+                          <span className="bg-slate-800 text-slate-300 text-[10px] font-mono px-2 py-0.5 rounded border border-slate-700 flex items-center gap-1">
+                            <Calendar size={10} /> {p.changeDate}
+                          </span>
+                          <b className="text-white text-sm block">{p.webName}</b>
+                        </div>
                         <small className="text-slate-400 text-xs">{p.teamShortName} • Ownership: {p.selectedByPercent}%</small>
                       </div>
                     </div>
                     <div className="text-right">
                       <span className="text-xs text-slate-400 block font-mono">£{p.nowCost}m</span>
                       <span className="text-rose-400 font-bold font-mono text-sm">
-                        {p.changeAmount} ↘
+                        -£{(Math.abs(p.costChangeEventFall || p.costChangeEvent) * 0.1).toFixed(1)}m ↘
                       </span>
                     </div>
                   </div>
