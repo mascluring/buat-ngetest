@@ -2,18 +2,13 @@ export const LEAGUE_ID = 134820;
 export const FPL_LEAGUE_URL = `https://fantasy.premierleague.com/en/leagues/${LEAGUE_ID}/standings/c`;
 const BASE = 'https://fantasy.premierleague.com/api';
 
-// Realistic browser headers to bypass Cloudflare 403 WAF checks
-const headers = {
-  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+// Header browser yang aman untuk bypass Cloudflare WAF dari server/cloud hosting
+const headers: Record<string, string> = {
+  'User-Agent':
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
   'Accept': 'application/json, text/plain, */*',
   'Accept-Language': 'en-US,en;q=0.9',
-  'Referer': 'https://fantasy.premierleague.com/',
-  'Origin': 'https://fantasy.premierleague.com',
   'Cache-Control': 'no-cache',
-  'Pragma': 'no-cache',
-  'Sec-Fetch-Dest': 'empty',
-  'Sec-Fetch-Mode': 'cors',
-  'Sec-Fetch-Site': 'same-origin',
 };
 
 export type Standing = {
@@ -47,26 +42,35 @@ export type LeagueResponse = {
 
 async function fplFetch<T>(path: string, revalidate = 60): Promise<T> {
   let lastError: unknown = null;
+  
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
       const r = await fetch(`${BASE}${path}`, {
         headers,
         next: { revalidate },
       });
+
       if (!r.ok) {
         throw new Error(`FPL API ${r.status}`);
       }
+      
       return (await r.json()) as T;
     } catch (error) {
       lastError = error;
-      if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, 400 * attempt));
+      if (attempt < 3) {
+        await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
+      }
     }
   }
+  
   throw lastError instanceof Error ? lastError : new Error('FPL API unavailable');
 }
 
 export function getLeague(page = 1): Promise<LeagueResponse> {
-  return fplFetch<LeagueResponse>(`/leagues-classic/${LEAGUE_ID}/standings/?page_standings=${Math.max(1, page)}&phase=1`, 60);
+  return fplFetch<LeagueResponse>(
+    `/leagues-classic/${LEAGUE_ID}/standings/?page_standings=${Math.max(1, page)}&phase=1`,
+    60
+  );
 }
 
 export function getBootstrap() {
@@ -85,18 +89,26 @@ export async function getAllLeagueStandings() {
   const first = await getLeague(1);
   const pages: LeagueResponse[] = [first];
   let page = 1;
+
   while (pages.at(-1)?.standings?.has_next && page < 20) {
     const nextPages = await Promise.all(
       Array.from({ length: 4 }, async (_, i) => {
         const next = page + i + 1;
         if (next > 20 || !pages.at(-1)?.standings?.has_next) return null;
-        try { return await getLeague(next); } catch { return null; }
+        try {
+          return await getLeague(next);
+        } catch {
+          return null;
+        }
       })
     );
-    for (const result of nextPages) if (result) pages.push(result);
+    for (const result of nextPages) {
+      if (result) pages.push(result);
+    }
     page = pages.length;
     if (!pages.at(-1)?.standings?.has_next) break;
   }
+  
   return { first, pages, standings: pages.flatMap((p) => p.standings?.results ?? []) };
 }
 
