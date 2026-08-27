@@ -22,10 +22,6 @@ export async function GET() {
         ? `https://fantasy.premierleague.com/dist/img/shirts/standard/shirt_${teamCode}_1-66.png`
         : `https://fantasy.premierleague.com/dist/img/shirts/standard/shirt_${teamCode}-66.png`;
 
-      // Di API FPL, cost_change_event mencatat total perubahan dalam 1 Gameweek.
-      // Jika Anda hanya memfilter `cost_change_event > 0`, pemain yang naik 2 hari lalu 
-      // dan belum naik lagi tetap akan memiliki nilai > 0 selama Gameweek berjalan.
-      
       const playerData = {
         id: el.id,
         webName: el.web_name,
@@ -38,15 +34,16 @@ export async function GET() {
         jerseyUrl,
       };
 
+      // Memeriksa pergerakan harga pada event/update terbaru FPL
       if (el.cost_change_event > 0) {
         risers.push(playerData);
-      } else if (el.cost_change_event < 0) {
+      } else if (el.cost_change_event_fall > 0 || el.cost_change_event < 0) {
         fallers.push(playerData);
       }
     });
 
     risers.sort((a, b) => b.costChangeEvent - a.costChangeEvent);
-    fallers.sort((a, b) => a.costChangeEvent - b.costChangeEvent);
+    fallers.sort((a, b) => a.costChangeEventFall - b.costChangeEventFall);
 
     return NextResponse.json({
       ok: true,
