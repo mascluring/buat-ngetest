@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getBootstrap } from '@/lib/fpl';
 
-// Revalidate data setiap 24 jam (86400 detik)
-export const revalidate = 86400;
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
     const boot = await getBootstrap();
     const elements = boot?.elements || [];
@@ -22,37 +22,41 @@ export async function GET(request: Request) {
         ? `https://fantasy.premierleague.com/dist/img/shirts/standard/shirt_${teamCode}_1-66.png`
         : `https://fantasy.premierleague.com/dist/img/shirts/standard/shirt_${teamCode}-66.png`;
 
-      // FPL mereset `cost_change_event` setiap kali ada perubahan harian.
-      // Perubahan persis 1 step harian (+0.1m atau -0.1m) ditandai dengan cost_change_event = 1 atau -1 
-      // saat event update harian terjadi.
-      const isDailyRise = el.cost_change_event === 1;
-      const isDailyFall = el.cost_change_event_fall === 1 || el.cost_change_event === -1;
+      // Di API FPL, cost_change_event mencatat total perubahan dalam 1 Gameweek.
+      // Jika Anda hanya memfilter `cost_change_event > 0`, pemain yang naik 2 hari lalu 
+      // dan belum naik lagi tetap akan memiliki nilai > 0 selama Gameweek berjalan.
+      
+      const playerData = {
+        id: el.id,
+        webName: el.web_name,
+        fullName: `${el.first_name} ${el.second_name}`,
+        teamShortName: team.short_name || '',
+        nowCost: (el.now_cost / 10).toFixed(1),
+        costChangeEvent: el.cost_change_event,
+        costChangeEventFall: el.cost_change_event_fall,
+        selectedByPercent: el.selected_by_percent || '0.0',
+        jerseyUrl,
+      };
 
-      if (isDailyRise || isDailyFall) {
-        const playerData = {
-          id: el.id,
-          webName: el.web_name,
-          fullName: `${el.first_name} ${el.second_name}`,
-          teamShortName: team.short_name || '',
-          nowCost: (el.now_cost / 10).toFixed(1),
-          priceDiff: '0.1',
-          selectedByPercent: el.selected_by_percent || '0.0',
-          jerseyUrl,
-        };
-
-        if (isDailyRise) risers.push(playerData);
-        if (isDailyFall) fallers.push(playerData);
+      if (el.cost_change_event > 0) {
+        risers.push(playerData);
+      } else if (el.cost_change_event < 0) {
+        fallers.push(playerData);
       }
     });
+
+    risers.sort((a, b) => b.costChangeEvent - a.costChangeEvent);
+    fallers.sort((a, b) => a.costChangeEvent - b.costChangeEvent);
 
     return NextResponse.json({
       ok: true,
       lastUpdated: new Date().toISOString(),
+      updateNotice: 'Perubahan harga FPL diperbarui setiap hari sekitar pukul 06.00 WIB.',
       risers,
       fallers,
       hasChanges: risers.length > 0 || fallers.length > 0,
     });
   } catch (err: any) {
-    return NextResponse.json({ ok: false, error: err?.message }, { status: 500 });
+    return NextResponse.json({ ok: false, error: err?.message || 'Gagal memuat perubahan harga' }, { status: 500 });
   }
 }
