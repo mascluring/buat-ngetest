@@ -59,7 +59,35 @@ export default function Home(){
    {error&&<div className="card error-banner"><b>FPL data belum tersedia</b><span>{error}</span><small>Server akan mencoba lagi saat Refresh atau deployment berikutnya.</small><button onClick={()=>load(page)}>Coba lagi</button></div>}
    <div className="stats-grid"><Stat icon={<Users/>} value={fmt(data?.league?.total_entries??data?.standings?.length??0)} label="Total manager"/><Stat icon={<Trophy/>} value={fmt(avg)} label="Rata-rata poin halaman"/><Stat icon={<Crown/>} value={top?fmt(top.total):'—'} label="Poin pemuncak"/><Stat icon={<Zap/>} value={bestGW?fmt(bestGW.event_total):'—'} label="Highest GW score"/></div>
    <div className="insight-grid"><Insight title="Leader" name={top?.player_name||'—'} sub={top?`${top.entry_name} • ${fmt(top.total)} pts`:'—'} rank="01"/><Insight title="Biggest Riser" name={riser?.player_name||'—'} sub={!movementReady?'Mulai tersedia GW2':riser?`Naik ${fmt((movement(riser) as number))} posisi`:'Tidak ada kenaikan'} rank="↑"/><Insight title="Biggest Faller" name={faller?.player_name||'—'} sub={!movementReady?'Mulai tersedia GW2':faller?`Turun ${fmt(Math.abs(movement(faller) as number))} posisi`:'Tidak ada penurunan'} rank="↓"/></div>
-   <section className="card analytics-card"><div className="analytics-head"><div><div className="section-kicker">SEASON SNAPSHOT</div><h2>Momentum klasemen</h2><p>Visual ringkas Top 10 pada halaman aktif dan jarak poin mereka.</p></div><Link className="view-all" href="https://fantasy.premierleague.com/en/leagues/134820/standings/c" target="_blank">Buka FPL ↗</Link></div><div className="bars">{top10.map((r,i)=><div className="bar-row" key={r.entry}><span className="bar-rank">{r.rank}</span><div className="bar-label"><b>{r.player_name||r.entry_name}</b><small>{fmt(r.total)} pts</small></div><div className="bar-track"><span style={{width:`${Math.max(8, top?.total ? r.total/top.total*100 : 0)}%`}}/></div></div>)}</div></section>
+   <section className="card analytics-card"><div className="analytics-head"><div><div className="section-kicker">SEASON SNAPSHOT</div><h2>Momentum klasemen</h2><p>Visual ringkas Top 10 pada halaman aktif dan jarak poin mereka.</p></div><Link className="view-all" href="https://fantasy.premierleague.com/en/leagues/134820/standings/c" target="_blank">Buka FPL ↗</Link></div><div className="bars">{top10.map((r,i)=>{
+              const colors = [
+                '#f59e0b', // Rank 1 (Amber)
+                '#f59e0b', // Rank 2
+                '#f59e0b', // Rank 3
+                '#6366f1', // Rank 4
+                '#6366f1', // Rank 5
+                '#6366f1', // Rank 6
+                '#10b981', // Rank 7
+                '#10b981', // Rank 8
+                '#10b981', // Rank 9
+                '#10b981', // Rank 10
+              ];
+              return (
+                <div className="bar-row" key={r.entry}>
+                  <span className="bar-rank">{r.rank}</span>
+                  <div className="bar-label">
+                    <b>{r.player_name||r.entry_name}</b>
+                    <small>{fmt(r.total)} pts</small>
+                  </div>
+                  <div className="bar-track">
+                    <span style={{
+                      width:`${Math.max(8, top?.total ? r.total/top.total*100 : 0)}%`,
+                      backgroundColor: colors[i] || '#f59e0b'
+                    }}/>
+                  </div>
+                </div>
+              );
+            })}</div></section>
    <section className="card table-card"><div className="table-head"><div><div className="section-kicker">LIVE STANDINGS</div><h2>Klasemen Era Super League</h2><p>50 manager per halaman • klik formasi untuk membuka Pitch View / Popup susunan pemain.</p></div><div className="search-wrap"><Search size={17}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Cari manager atau tim..."/></div></div>
     <div className="compare-quick"><Link href="/fixtures" className="compare-button text-blue-300 border-blue-500/40 bg-blue-500/10"><Calendar size={14}/> Fixtures</Link><Link href="/price-changes" className="compare-button text-emerald-300 border-emerald-500/40 bg-emerald-500/10"><TrendingUp size={14}/> Price Changes</Link><Link href="/top-performers" className="compare-button text-amber-300 border-amber-500/40 bg-amber-500/10"><Trophy size={14}/> GW Top Performers</Link><Link href="/analytics" className="compare-button"><Sparkles size={14}/> League Analytics</Link><Link href="/compare" className="compare-button"><BarChart3 size={14}/> Compare Manager</Link></div><div className="sorts"><span>Urutkan:</span>{(['rank','gw','total','move'] as const).map(s=><button key={s} className={sort===s?'active':''} onClick={()=>setSort(s)}>{s==='rank'?'Rank':s==='gw'?'GW Points':s==='total'?'Total':'Movement'}</button>)}</div>
     <div className="table-scroll"><table className="rank-table">

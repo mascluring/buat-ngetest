@@ -4,12 +4,17 @@ import { createClient } from '@supabase/supabase-js';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseKey);
+function getSupabase() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!supabaseUrl) throw new Error('NEXT_PUBLIC_SUPABASE_URL environment variable is required');
+  if (!supabaseKey) throw new Error('NEXT_PUBLIC_SUPABASE_ANON_KEY environment variable is required');
+  return createClient(supabaseUrl, supabaseKey);
+}
 
 export async function GET() {
   try {
+    const supabase = getSupabase();
     const { data: priceChanges, error } = await supabase
       .from('price_changes')
       .select('*')

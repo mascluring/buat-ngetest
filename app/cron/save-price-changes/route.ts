@@ -7,12 +7,17 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 // Inisialisasi client Supabase
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseKey);
+function getSupabase() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!supabaseUrl) throw new Error('NEXT_PUBLIC_SUPABASE_URL environment variable is required');
+  if (!supabaseKey) throw new Error('SUPABASE_SERVICE_ROLE_KEY or NEXT_PUBLIC_SUPABASE_ANON_KEY environment variable is required');
+  return createClient(supabaseUrl, supabaseKey);
+}
 
 export async function GET(request: Request) {
   try {
+    const supabase = getSupabase();
     // 1. Ambil data bootstrap dari FPL API
     const boot = await getBootstrap();
     const elements = boot?.elements || [];
@@ -45,6 +50,7 @@ export async function GET(request: Request) {
           change_type: isRiser ? 'Riser' : 'Faller',
           price_change: priceChangeVal,
           now_cost: Number((el.now_cost / 10).toFixed(1)),
+          selected_by_percent: el.selected_by_percent,
           change_date: dateStr,
         });
       }

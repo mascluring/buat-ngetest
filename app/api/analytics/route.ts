@@ -28,10 +28,11 @@ export async function GET() {
       averageTotal: Math.round(avg),
       leader: top10[0] ?? null,
       top10,
+      standings,
       risers: risers.slice(0, 8),
       fallers: fallers.slice(0, 8),
       maxTotal: top10[0]?.total || 1,
-      generatedAt: new Date().toISOString(),
+      lastUpdated: new Date().toISOString(),
       source: 'Fantasy Premier League API',
     }, { headers: { 'Cache-Control': 's-maxage=120, stale-while-revalidate=300' } });
   } catch (e: any) {
