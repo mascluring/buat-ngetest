@@ -11,8 +11,9 @@ type Player = {
   price: string;
   price_raw: number;
   status: string;
+  status_color: string;
   progress: string;
-  next_3_gw: { opponent: string; is_home: boolean; difficulty: number; label: string }[];
+  next_3_gw: { gw: number; opponent: string; isHome: boolean; difficulty: number; label: string }[];
   form: string;
   eo_percent: string;
 };
@@ -22,6 +23,10 @@ export default function PlayersPage() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('All');
+  const [sortKey, setSortKey] = useState<keyof Player | null>(null);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 25;
 
   useEffect(() => {
     fetch('/api/players')
@@ -30,13 +35,51 @@ export default function PlayersPage() {
       .catch(() => setLoading(false));
   }, []);
 
-  const filtered = useMemo(() => {
-    return players.filter(p => {
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [query, filter, sortKey, sortDir]);
+
+  const sortedPlayers = useMemo(() => {
+    let result = players.filter(p => {
       const matchesSearch = p.name.toLowerCase().includes(query.toLowerCase()) || p.team_short.toLowerCase().includes(query.toLowerCase());
       const matchesPos = filter === 'All' || p.position === filter;
       return matchesSearch && matchesPos;
     });
-  }, [players, query, filter]);
+
+    if (sortKey) {
+      result = result.sort((a, b) => {
+        const valA = a[sortKey];
+        const valB = b[sortKey];
+        
+        let comparison = 0;
+        if (typeof valA === 'string' && typeof valB === 'string') {
+          comparison = parseFloat(valA) - parseFloat(valB);
+        } else if (typeof valA === 'number' && typeof valB === 'number') {
+          comparison = valA - valB;
+        }
+
+        return sortDir === 'asc' ? comparison : -comparison;
+      });
+    }
+    return result;
+  }, [players, query, filter, sortKey, sortDir]);
+
+  const paginatedPlayers = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return sortedPlayers.slice(start, start + pageSize);
+  }, [sortedPlayers, currentPage]);
+
+  const totalPages = Math.ceil(sortedPlayers.length / pageSize);
+
+  const handleSort = (key: keyof Player) => {
+    if (sortKey === key) {
+      setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortDir('desc');
+    }
+  };
 
   return (
     <main className="container p-6 bg-slate-950 min-h-screen text-slate-100">
@@ -49,15 +92,23 @@ export default function PlayersPage() {
         <div className="text-slate-400">{players.length} players</div>
       </div>
 
-      <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+      <div className="flex gap-2 mb-6 overflow-x-auto pb-2 items-center">
         {['All', 'GK', 'DEF', 'MID', 'FWD'].map(pos => (
           <button key={pos} onClick={() => setFilter(pos)} className={`px-4 py-2 rounded-full text-sm font-medium ${filter === pos ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300'}`}>
             {pos}
           </button>
         ))}
-        <div className="relative flex-1 max-w-sm ml-auto">
-          <Search className="absolute left-3 top-2.5 text-slate-500" size={16}/>
-          <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search player or team..." className="w-full pl-10 pr-4 py-2 bg-slate-800 rounded-full text-sm"/>
+        <div className="flex gap-1 ml-auto">
+          <span className="text-sm text-slate-400 mr-2 self-center">Sort by:</span>
+          {(['price_raw', 'form', 'eo_percent'] as const).map(key => (
+             <button key={key} onClick={() => handleSort(key)} className={`px-3 py-1 rounded-md text-xs font-medium ${sortKey === key ? 'bg-slate-700 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                {key === 'price_raw' ? 'Price' : key === 'form' ? 'Form' : 'EO%'} {sortKey === key ? (sortDir === 'asc' ? '↑' : '↓') : ''}
+             </button>
+          ))}
+          <div className="relative flex-1 max-w-sm ml-2">
+            <Search className="absolute left-3 top-2.5 text-slate-500" size={16}/>
+            <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search player or team..." className="w-full pl-10 pr-4 py-2 bg-slate-800 rounded-full text-sm"/>
+          </div>
         </div>
       </div>
 
@@ -75,15 +126,17 @@ export default function PlayersPage() {
             </tr>
           </thead>
           <tbody>
-            {loading ? <tr><td colSpan={7} className="p-4 text-center">Loading...</td></tr> : filtered.map(p => (
+            {loading ? <tr><td colSpan={7} className="p-4 text-center">Loading...</td></tr> : paginatedPlayers.map(p => (
               <tr key={p.id} className="border-t border-slate-800 hover:bg-slate-800/50">
                 <td className="px-4 py-3">
-                  <div className="font-bold">{p.name}</div>
+                  <Link href={`https://fantasy.premierleague.com/player/${p.id}/`} target="_blank" rel="noopener noreferrer" className="font-bold hover:text-blue-400">
+                    {p.name}
+                  </Link>
                   <div className="text-xs text-slate-500">{p.team_short} • {p.position}</div>
                 </td>
                 <td className="px-4 py-3 font-medium">{p.price}</td>
                 <td className="px-4 py-3">
-                  <span className={`px-2 py-1 rounded text-xs ${p.status === 'Likely Rise' ? 'bg-green-900 text-green-200' : p.status === 'Likely Fall' ? 'bg-red-900 text-red-200' : 'bg-slate-800 text-slate-300'}`}>
+                  <span className={`px-2 py-1 rounded text-xs ${p.status_color} text-white`}>
                     {p.status}
                   </span>
                 </td>
@@ -102,6 +155,14 @@ export default function PlayersPage() {
           </tbody>
         </table>
       </div>
+
+      {totalPages > 1 && (
+        <div className="flex justify-center gap-2 mt-4">
+          <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1} className="px-3 py-1 bg-slate-800 rounded text-sm disabled:opacity-50">Prev</button>
+          <span className="text-sm self-center">Page {currentPage} of {totalPages}</span>
+          <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages} className="px-3 py-1 bg-slate-800 rounded text-sm disabled:opacity-50">Next</button>
+        </div>
+      )}
     </main>
   );
 }

@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/cron/save-price-changes",
-      "schedule": "5 23 * * *"
+      "schedule": "0 0 * * *"
     }
   ]
 }
