@@ -47,7 +47,7 @@ export default function Home(){
   }catch(e:any){setError(e?.message||'Data FPL tidak dapat dimuat');setData(null)}finally{setLoading(false)}};
  useEffect(()=>{load(page)},[page]);
  const movementReady=(data?.current??1)>=2;
- const movement=(r:Row)=>movementReady ? r.last_rank-r.rank : null;
+ const movement=(r:Row)=>movementReady && r.last_rank > 0 ? r.last_rank-r.rank : null;
  const rows=useMemo(()=>{const q=query.trim().toLowerCase();const a=(data?.standings??[]).filter(r=>`${r.player_name} ${r.entry_name}`.toLowerCase().includes(q));return [...a].sort((x,y)=>sort==='gw'?y.event_total-x.event_total:sort==='total'?y.total-x.total:sort==='move'?((movement(y)??0)-(movement(x)??0)):x.rank-y.rank)},[data,query,sort]);
  const top=data?.standings?.[0]; const avg=data?.standings?.length?Math.round(data.standings.reduce((s,r)=>s+r.total,0)/data.standings.length):0;
  const bestGW=data?.standings?.reduce((a,r)=>!a||r.event_total>a.event_total?r:a,null as any);
@@ -327,4 +327,8 @@ function ListView({ picksList }: { picksList: PickPlayer[] }) {
 
 function Stat({icon,value,label}:{icon:any;value:string;label:string}){return <div className="stat card"><div className="stat-icon">{icon}</div><div className="stat-value">{value}</div><div className="stat-label">{label}</div></div>}
 function Insight({title,name,sub,rank}:{title:string;name:string;sub:string;rank:string}){return <div className="insight card"><div><span>{title}</span><b>{name}</b><small>{sub}</small></div><strong>{rank}</strong></div>}
-function Movement({d}:{d:number|null}){if(d===null)return <span className="movement flat">—</span>;if(d>0)return <span className="movement up"><ArrowUp size={14}/>{d}</span>;if(d<0)return <span className="movement down"><ArrowDown size={14}/>{Math.abs(d)}</span>;return <span className="movement flat">—</span>}
+function Movement({d}:{d:number|null}){
+  if (d === null || d === 0) return <span className="movement flat">—</span>;
+  if (d > 0) return <span className="movement up"><ArrowUp size={14}/> {d}</span>;
+  return <span className="movement down"><ArrowDown size={14}/> {Math.abs(d)}</span>;
+}
