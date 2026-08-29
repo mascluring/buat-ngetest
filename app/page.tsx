@@ -99,7 +99,13 @@ export default function Home(){
               );
             })}</div></section>
    <section className="card table-card"><div className="table-head"><div><div className="section-kicker">LIVE STANDINGS</div><h2>Klasemen Era Super League</h2><p>50 manager per halaman • klik formasi untuk membuka Pitch View / Popup susunan pemain.</p></div><div className="search-wrap"><Search size={17}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Cari manager atau tim..."/></div></div>
-    <div className="compare-quick"><Link href="/fixtures" className="compare-button text-blue-300 border-blue-500/40 bg-blue-500/10"><Calendar size={14}/> Fixtures</Link><Link href="/price-changes" className="compare-button text-emerald-300 border-emerald-500/40 bg-emerald-500/10"><TrendingUp size={14}/> Price Changes</Link><Link href="/top-performers" className="compare-button text-amber-300 border-amber-500/40 bg-amber-500/10"><Trophy size={14}/> GW Top Performers</Link><Link href="/analytics" className="compare-button"><Sparkles size={14}/> League Analytics</Link><Link href="/compare" className="compare-button"><BarChart3 size={14}/> Compare Manager</Link></div><div className="sorts"><span>Urutkan:</span>{(['rank','gw','total','move'] as const).map(s=><button key={s} className={sort===s?'active':''} onClick={()=>setSort(s)}>{s==='rank'?'Rank':s==='gw'?'GW Points':s==='total'?'Total':'Movement'}</button>)}</div>
+    <div className="compare-quick">
+    <Link href="/player" className="compare-button text-purple-300 border-purple-500/40 bg-purple-500/10">
+      <Users size={14}/> Player
+    </Link>
+    <Link href="/fixtures" className="compare-button text-blue-300 border-blue-500/40 bg-blue-500/10">
+      <Calendar size={14}/> Fixtures
+    </Link><Link href="/price-changes" className="compare-button text-emerald-300 border-emerald-500/40 bg-emerald-500/10"><TrendingUp size={14}/> Price Changes</Link><Link href="/top-performers" className="compare-button text-amber-300 border-amber-500/40 bg-amber-500/10"><Trophy size={14}/> GW Top Performers</Link><Link href="/analytics" className="compare-button"><Sparkles size={14}/> League Analytics</Link><Link href="/compare" className="compare-button"><BarChart3 size={14}/> Compare Manager</Link></div><div className="sorts"><span>Urutkan:</span>{(['rank','gw','total','move'] as const).map(s=><button key={s} className={sort===s?'active':''} onClick={()=>setSort(s)}>{s==='rank'?'Rank':s==='gw'?'GW Points':s==='total'?'Total':'Movement'}</button>)}</div>
     <div className="table-scroll"><table className="rank-table">
      <thead>
       <tr>
