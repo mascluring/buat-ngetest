@@ -30,19 +30,29 @@ type Detail={
 type Data={league:any;standings:Row[];details?:Record<number,Detail>;hasNext:boolean;page:number;current:number};
 
 export default function Home(){
- const [data,setData]=useState<Data|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState(''),[query,setQuery]=useState(''),[page,setPage]=useState(1),[sort,setSort]=useState<'rank'|'gw'|'total'|'move'>('rank');
+ const [data,setData]=useState<Data|null>(null),[analytics,setAnalytics]=useState<any>(null),[loading,setLoading]=useState(true),[error,setError]=useState(''),[query,setQuery]=useState(''),[page,setPage]=useState(1),[sort,setSort]=useState<'rank'|'gw'|'total'|'move'>('rank');
  const [expandedEntry, setExpandedEntry] = useState<number|null>(null);
  const [viewMode, setViewMode] = useState<'pitch'|'list'>('pitch');
 
- const load=async(p=page)=>{setLoading(true);setError('');try{const r=await fetch(`/api/league-picks?page=${p}`,{cache:'no-store'});const json=await r.json().catch(()=>null);if(!r.ok||!json?.ok)throw new Error(json?.error||`API error ${r.status}`);setData(json)}catch(e:any){setError(e?.message||'Data FPL tidak dapat dimuat');setData(null)}finally{setLoading(false)}};
+ const load=async(p=page)=>{setLoading(true);setError('');try{
+    const [r1, r2] = await Promise.all([
+      fetch(`/api/league-picks?page=${p}`,{cache:'no-store'}),
+      fetch('/api/analytics',{cache:'no-store'})
+    ]);
+    const json1 = await r1.json().catch(()=>null);
+    const json2 = await r2.json().catch(()=>null);
+    if(!r1.ok||!json1?.ok)throw new Error(json1?.error||`API error ${r1.status}`);
+    setData(json1);
+    setAnalytics(json2);
+  }catch(e:any){setError(e?.message||'Data FPL tidak dapat dimuat');setData(null)}finally{setLoading(false)}};
  useEffect(()=>{load(page)},[page]);
  const movementReady=(data?.current??1)>=2;
  const movement=(r:Row)=>movementReady ? r.last_rank-r.rank : null;
  const rows=useMemo(()=>{const q=query.trim().toLowerCase();const a=(data?.standings??[]).filter(r=>`${r.player_name} ${r.entry_name}`.toLowerCase().includes(q));return [...a].sort((x,y)=>sort==='gw'?y.event_total-x.event_total:sort==='total'?y.total-x.total:sort==='move'?((movement(y)??0)-(movement(x)??0)):x.rank-y.rank)},[data,query,sort]);
  const top=data?.standings?.[0]; const avg=data?.standings?.length?Math.round(data.standings.reduce((s,r)=>s+r.total,0)/data.standings.length):0;
  const bestGW=data?.standings?.reduce((a,r)=>!a||r.event_total>a.event_total?r:a,null as any);
- const riser=movementReady ? (data?.standings??[]).filter(r=>movement(r)!==null && (movement(r) as number)>0).reduce((a,r)=>!a||((movement(r) as number)>(movement(a) as number))?r:a,null as any) : null;
- const faller=movementReady ? (data?.standings??[]).filter(r=>movement(r)!==null && (movement(r) as number)<0).reduce((a,r)=>!a||((movement(r) as number)<(movement(a) as number))?r:a,null as any) : null;
+ const riser = analytics?.biggestRiser;
+ const faller = analytics?.biggestFaller;
  const top10=(data?.standings??[]).slice(0,10);
 
  const toggleExpand = (entryId: number) => {

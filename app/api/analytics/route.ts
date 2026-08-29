@@ -30,6 +30,9 @@ export async function GET() {
     const risers = sorted.filter((r) => r.movement !== null && r.movement > 0).sort((a, b) => (b.movement as number) - (a.movement as number));
     const fallers = sorted.filter((r) => r.movement !== null && r.movement < 0).sort((a, b) => (a.movement as number) - (b.movement as number));
     
+    const biggestRiser = risers.length > 0 ? risers[0] : null;
+    const biggestFaller = fallers.length > 0 ? fallers[0] : null;
+
     return NextResponse.json({
       ok: true,
       leagueId: LEAGUE_ID,
@@ -45,6 +48,8 @@ export async function GET() {
       standings: standingsWithMovement,
       risers: risers.slice(0, 8),
       fallers: fallers.slice(0, 8),
+      biggestRiser,
+      biggestFaller,
       maxTotal: top10[0]?.total || 1,
       lastUpdated: new Date().toISOString(),
       source: 'Fantasy Premier League API',
