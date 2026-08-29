@@ -5,7 +5,7 @@ import { ArrowDown, ArrowLeft, ArrowUp, Crown, RefreshCw, Sparkles, Trophy, Tren
 
 const fmt=(n:number)=>new Intl.NumberFormat('id-ID').format(n);
 const initials=(name:string)=>name.split(' ').filter(Boolean).map(x=>x[0]).slice(0,2).join('').toUpperCase();
-type Row={entry:number;entry_name:string;player_name:string;rank:number;last_rank:number;total:number;event_total:number};
+type Row={entry:number;entry_name:string;player_name:string;rank:number;last_rank:number;total:number;event_total:number;movement:number|null};
 type Analytics={current:number|null;finishedGameweeks:number;movementReady:boolean;totalManagers:number;averageTotal:number;leader:Row|null;top10:Row[];standings:Row[];risers:Row[];fallers:Row[];maxTotal:number;currentEvent:any;lastUpdated:string};
 export default function Analytics(){
  const [data,setData]=useState<Analytics|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState('');
@@ -50,5 +50,5 @@ export default function Analytics(){
  <footer>ERA SUPER LEAGUE • Analytics V5.5.2 • League ID 134820</footer></div></main>
 }
 function Stat({icon,value,label}:{icon:any;value:string;label:string}){return <div className="stat card"><div className="stat-icon">{icon}</div><div className="stat-value">{value}</div><div className="stat-label">{label}</div></div>}
-function Momentum({title,row,up=false,ready=false}:{title:string;row?:Row;up?:boolean;ready?:boolean}){const d=row?row.last_rank-row.rank:0;return <div className="momentum-card"><span>{title}</span>{!ready?<><b>Mulai tersedia GW2</b><small>Belum ada perbandingan ranking.</small></>:<><b>{row?.player_name||'—'}</b><small>{row?.entry_name||'—'}</small><strong className={up?'up':'down'}>{d>0?'↑':'↓'} {Math.abs(d)} posisi</strong></>}</div>}
-function MiniRow({row,up=false}:{row:Row;up?:boolean}){const d=row.last_rank-row.rank;return <Link href={`/manager/${row.entry}`} className="mini-row"><span className="avatar">{initials(row.player_name||row.entry_name)}</span><span><b>{row.player_name}</b><small>{row.entry_name}</small></span><strong className={up?'up':'down'}>{up?'↑':'↓'} {Math.abs(d)}</strong></Link>}
+function Momentum({title,row,up=false,ready=false}:{title:string;row?:Row;up?:boolean;ready?:boolean}){const d=row?.movement??0;return <div className="momentum-card"><span>{title}</span>{!ready?<><b>Mulai tersedia GW2</b><small>Belum ada perbandingan ranking.</small></>:<><b>{row?.player_name||'—'}</b><small>{row?.entry_name||'—'}</small><strong className={d>0?'up':'down'}>{d>0?'↑':'↓'} {Math.abs(d)} posisi</strong></>}</div>}
+function MiniRow({row,up=false}:{row:Row;up?:boolean}){const d=row.movement??0;return <Link href={`/manager/${row.entry}`} className="mini-row"><span className="avatar">{initials(row.player_name||row.entry_name)}</span><span><b>{row.player_name}</b><small>{row.entry_name}</small></span><strong className={d>0?'up':'down'}>{d>0?'↑':'↓'} {Math.abs(d)}</strong></Link>}
