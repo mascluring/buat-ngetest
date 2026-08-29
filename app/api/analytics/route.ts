@@ -25,6 +25,11 @@ export async function GET() {
     }));
 
     const avg = standingsWithMovement.length ? standingsWithMovement.reduce((s: number, r: any) => s + Number(r.total || 0), 0) / standingsWithMovement.length : 0;
+    
+    const highestGWScore = standingsWithMovement.length > 0 
+      ? standingsWithMovement.reduce((max: any, r: any) => (r.event_total > (max?.event_total || -1) ? r : max), null)
+      : null;
+
     const sorted = [...standingsWithMovement].sort((a, b) => a.rank - b.rank);
     const top10 = sorted.slice(0, 10);
     const risers = sorted.filter((r) => r.movement !== null && r.movement > 0).sort((a, b) => (b.movement as number) - (a.movement as number));
@@ -50,6 +55,7 @@ export async function GET() {
       fallers: fallers.slice(0, 8),
       biggestRiser,
       biggestFaller,
+      highestGWScore,
       maxTotal: top10[0]?.total || 1,
       lastUpdated: new Date().toISOString(),
       source: 'Fantasy Premier League API',

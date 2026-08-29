@@ -6,7 +6,7 @@ import { ArrowDown, ArrowLeft, ArrowUp, Crown, RefreshCw, Sparkles, Trophy, Tren
 const fmt=(n:number)=>new Intl.NumberFormat('id-ID').format(n);
 const initials=(name:string)=>name.split(' ').filter(Boolean).map(x=>x[0]).slice(0,2).join('').toUpperCase();
 type Row={entry:number;entry_name:string;player_name:string;rank:number;last_rank:number;total:number;event_total:number;movement:number|null};
-type Analytics={current:number|null;finishedGameweeks:number;movementReady:boolean;totalManagers:number;averageTotal:number;leader:Row|null;top10:Row[];standings:Row[];risers:Row[];fallers:Row[];biggestRiser:Row|null;biggestFaller:Row|null;maxTotal:number;currentEvent:any;lastUpdated:string};
+type Analytics={current:number|null;finishedGameweeks:number;movementReady:boolean;totalManagers:number;averageTotal:number;leader:Row|null;top10:Row[];standings:Row[];risers:Row[];fallers:Row[];biggestRiser:Row|null;biggestFaller:Row|null;highestGWScore:Row|null;maxTotal:number;currentEvent:any;lastUpdated:string};
 export default function Analytics(){
  const [data,setData]=useState<Analytics|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState('');
  const load=async()=>{setLoading(true);setError('');try{const r=await fetch('/api/analytics',{cache:'no-store'});const json=await r.json().catch(()=>null);if(!r.ok||!json?.ok)throw new Error(json?.error||`API error ${r.status}`);setData(json)}catch(e:any){setError(e?.message||'Analytics tidak dapat dimuat');setData(null)}finally{setLoading(false)}};
@@ -20,7 +20,7 @@ export default function Analytics(){
     <Stat icon={<Users/>} value={fmt(data?.totalManagers??0)} label="Total managers"/>
     <Stat icon={<Calendar/>} value={String(data?.current??'—')} label="Current GW"/>
     <Stat icon={<Zap/>} value={fmt(data?.currentEvent?.average_entry_score??0)} label="Average GW Pts"/>
-    <Stat icon={<TrendingUp/>} value={fmt(Math.max(...(data?.top10.map(r=>r.event_total)??[0])))} label="Highest GW Score"/>
+    <Stat icon={<TrendingUp/>} value={fmt(data?.highestGWScore?.event_total??0)} label="Highest GW Score"/>
     <Stat icon={<Crown/>} value={data?.leader?.player_name||'—'} label="League Leader"/>
  </div>
  
@@ -29,7 +29,7 @@ export default function Analytics(){
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
         <div className="p-4 bg-slate-900/50 rounded-lg border border-slate-800">
             <div className="text-xs text-slate-400">Highest GW Score</div>
-            <div className="text-xl font-bold">{data?.standings?.reduce((a,b)=>a.event_total>b.event_total?a:b)?.player_name}</div>
+            <div className="text-xl font-bold">{data?.highestGWScore?.player_name || '—'}</div>
         </div>
         <div className="p-4 bg-slate-900/50 rounded-lg border border-slate-800">
             <div className="text-xs text-slate-400">Highest Total Points</div>
@@ -51,4 +51,4 @@ export default function Analytics(){
 }
 function Stat({icon,value,label}:{icon:any;value:string;label:string}){return <div className="stat card"><div className="stat-icon">{icon}</div><div className="stat-value">{value}</div><div className="stat-label">{label}</div></div>}
 function Momentum({title,row,up=false,ready=false}:{title:string;row?:Row|null;up?:boolean;ready?:boolean}){const d=row?.movement??0;return <div className="momentum-card"><span>{title}</span>{!ready?<><b>Mulai tersedia GW2</b><small>Belum ada perbandingan ranking.</small></>:<><b>{row?.player_name||'—'}</b><small>{row?.entry_name||'—'}</small><strong className={d>0?'up':'down'}>{d>0?'↑':'↓'} {Math.abs(d)} posisi</strong></>}</div>}
-function MiniRow({row,up=false}:{row:Row;up?:boolean}){const d=row.movement??0;return <Link href={`/manager/${row.entry}`} className="mini-row"><span className="avatar">{initials(row.player_name||row.entry_name)}</span><span><b>{row.player_name}</b><small>{row.entry_name}</small></span><strong className={d>0?'up':'down'}>{d>0?'↑':'↓'} {Math.abs(d)}</strong></Link>}
+function MiniRow({row,up=false}:{row:Row;up?:boolean}){const d=row.movement; return <Link href={`/manager/${row.entry}`} className="mini-row"><span className="avatar">{initials(row.player_name||row.entry_name)}</span><span><b>{row.player_name}</b><small>{row.entry_name}</small></span><strong className={d && d>0?'up':d&&d<0?'down':'flat'}>{d===null||d===0?'—':(d>0?`↑ ${d}`:`↓ ${Math.abs(d)}`)}</strong></Link>}
