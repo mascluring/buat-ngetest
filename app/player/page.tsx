@@ -13,6 +13,7 @@ type Player = {
   status: string;
   status_color: string;
   progress: string;
+  predicted_progress: string;
   next_3_gw: { gw: number; opponent: string; isHome: boolean; difficulty: number; label: string }[];
   form: string;
   eo_percent: string;
@@ -120,13 +121,14 @@ export default function PlayersPage() {
               <th className="px-4 py-3 text-left">PRICE</th>
               <th className="px-4 py-3 text-left">STATUS</th>
               <th className="px-4 py-3 text-left">PROGRESS</th>
+              <th className="px-4 py-3 text-left">PREDICTED</th>
               <th className="px-4 py-3 text-left">NEXT 3 GW</th>
               <th className="px-4 py-3 text-left">FORM</th>
               <th className="px-4 py-3 text-left">EO%</th>
             </tr>
           </thead>
           <tbody>
-            {loading ? <tr><td colSpan={7} className="p-4 text-center">Loading...</td></tr> : paginatedPlayers.map(p => (
+            {loading ? <tr><td colSpan={8} className="p-4 text-center">Loading...</td></tr> : paginatedPlayers.map(p => (
               <tr key={p.id} className="border-t border-slate-800 hover:bg-slate-800/50">
                 <td className="px-4 py-3">
                   <Link href={`https://fantasy.premierleague.com/player/${p.id}/`} target="_blank" rel="noopener noreferrer" className="font-bold hover:text-blue-400">
@@ -136,11 +138,12 @@ export default function PlayersPage() {
                 </td>
                 <td className="px-4 py-3 font-medium">{p.price}</td>
                 <td className="px-4 py-3">
-                  <span className={`px-2 py-1 rounded text-xs ${p.status_color} text-white`}>
+                  <span className={`px-2 py-1 rounded text-xs ${p.status_color} text-white whitespace-nowrap`}>
                     {p.status}
                   </span>
                 </td>
-                <td className={`px-4 py-3 font-medium ${p.progress.startsWith('+') ? 'text-green-400' : 'text-red-400'}`}>{p.progress}</td>
+                <td className="px-4 py-3 font-medium">{p.progress}</td>
+                <td className="px-4 py-3 font-medium text-slate-400">{p.predicted_progress}</td>
                 <td className="px-4 py-3 flex gap-1">
                   {p.next_3_gw.map((f, i) => (
                     <span key={i} className={`px-2 py-1 rounded text-[10px] font-bold ${f.difficulty <= 2 ? 'bg-green-700' : f.difficulty === 3 ? 'bg-slate-600' : 'bg-red-700'}`}>

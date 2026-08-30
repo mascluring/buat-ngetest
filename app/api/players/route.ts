@@ -83,8 +83,12 @@ export async function GET() {
       const ownership = parseFloat(p.selected_by_percent);
       const sqrtOwnership = Math.sqrt(ownership);
       
-      const thresholdRise = 1500 * sqrtOwnership;
-      const thresholdFall = 1200 * sqrtOwnership;
+      // Check for flags/injury
+      const isAvailable = p.status === 'a';
+      const flagMultiplier = !isAvailable ? 4 : 1; 
+      
+      const thresholdRise = (1500 * sqrtOwnership) * flagMultiplier;
+      const thresholdFall = (1200 * sqrtOwnership) * flagMultiplier;
       
       // Calculate progress
       let progressVal = 0;
@@ -94,30 +98,32 @@ export async function GET() {
         progressVal = (netTransfers / thresholdFall) * 100;
       }
       
+      // Calculate predicted progress (simple linear projection to midnight UTC)
+      // Assuming event started X hours ago. For simplicity, just use current progress.
+      const predictedProgressVal = progressVal * 1.5; // Simple estimation factor
+      
       // Clamp progress
-      progressVal = Math.max(Math.min(progressVal, 100), -100);
+      const clampedProgress = Math.max(Math.min(progressVal, 100), -100);
+      const clampedPredicted = Math.max(Math.min(predictedProgressVal, 100), -100);
       
       // Determine status
-      let statusLabel = "Stable";
+      let statusLabel = "Unlikely to Change";
       let statusColor = "bg-slate-800";
       
-      if (p.cost_change_event > 0) {
-        statusLabel = "Price Rise";
-        statusColor = "bg-green-900";
-      } else if (p.cost_change_event_fall > 0) {
-        statusLabel = "Price Fall";
-        statusColor = "bg-red-900";
-      } else if (progressVal >= 100) {
-        statusLabel = "Riser / High Risk of Rise";
+      if (!isAvailable) {
+        statusLabel = "Locked / Unlikely";
+        statusColor = "bg-slate-700";
+      } else if (p.cost_change_event > 0 || (netTransfers > 0 && clampedProgress >= 100)) {
+        statusLabel = "Very Likely to Rise 🔥";
         statusColor = "bg-green-600";
-      } else if (progressVal >= 70) {
-        statusLabel = "Building Momentum (Rise)";
-        statusColor = "bg-green-900";
-      } else if (progressVal <= -100) {
-        statusLabel = "Faller / High Risk of Fall";
+      } else if (p.cost_change_event_fall > 0 || (netTransfers < 0 && clampedProgress <= -100)) {
+        statusLabel = "Very Likely to Drop 🔻";
         statusColor = "bg-red-600";
-      } else if (progressVal <= -70) {
-        statusLabel = "Building Momentum (Fall)";
+      } else if (clampedProgress >= 80) {
+        statusLabel = "Likely to Rise";
+        statusColor = "bg-green-900";
+      } else if (clampedProgress <= -80) {
+        statusLabel = "Likely to Drop";
         statusColor = "bg-red-900";
       }
 
@@ -130,7 +136,8 @@ export async function GET() {
         price_raw: p.now_cost,
         status: statusLabel,
         status_color: statusColor,
-        progress: `${progressVal > 0 ? '+' : ''}${progressVal.toFixed(1)}%`,
+        progress: `${clampedProgress.toFixed(1)}%`,
+        predicted_progress: `${clampedPredicted.toFixed(1)}%`,
         next_3_gw: getNext3Fixtures(p.team),
         form: parseFloat(p.form).toFixed(1),
         eo_percent: `${p.selected_by_percent}%`
