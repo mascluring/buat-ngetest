@@ -12,14 +12,27 @@ function getSupabase() {
   return createClient(supabaseUrl, supabaseKey);
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const dateFilter = searchParams.get('date');
     const supabase = getSupabase();
-    const { data: priceChanges, error } = await supabase
+
+    let query = supabase
       .from('price_changes')
       .select('*')
       .order('change_date', { ascending: false })
       .order('id', { ascending: false });
+
+    if (dateFilter) {
+      query = query.eq('change_date', dateFilter);
+    } else {
+      // If no date, maybe we just want the latest? 
+      // The current implementation loads all of them and they get displayed.
+      // Let's stick with the current behavior if no date.
+    }
+
+    const { data: priceChanges, error } = await query;
 
     if (error) throw new Error(error.message);
 

@@ -29,11 +29,14 @@ export default function PriceChangesPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [dateFilter, setDateFilter] = useState('');
 
-  const loadData = async () => {
+  const loadData = async (date?: string) => {
     setLoading(true);
+    setError('');
     try {
-      const res = await fetch('/api/price-changes', { cache: 'no-store' });
+      const url = date ? `/api/price-changes?date=${date}` : '/api/price-changes';
+      const res = await fetch(url, { cache: 'no-store' });
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.error || 'Gagal memuat data');
       setData(json);
@@ -45,6 +48,12 @@ export default function PriceChangesPage() {
   };
 
   useEffect(() => { loadData(); }, []);
+
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const date = e.target.value;
+    setDateFilter(date);
+    loadData(date);
+  };
 
   const risers = data?.risers || [];
   const fallers = data?.fallers || [];
@@ -66,11 +75,19 @@ export default function PriceChangesPage() {
             <h1 className="text-3xl font-black text-white">Perubahan Harga Pemain</h1>
             <p className="text-slate-400 text-sm mt-1">Daftar pemain yang mengalami perubahan harga pasar di Fantasy Premier League.</p>
           </div>
-          <div className="bg-slate-800/80 p-3.5 rounded-xl border border-slate-700 flex items-center gap-3">
-            <Clock size={18} className="text-cyan-400" />
-            <div className="text-xs">
-              <span className="text-slate-400 block font-semibold">JADWAL UPDATE FPL:</span>
-              <span className="text-white font-bold">Setiap Hari Pukul 06.00 WIB</span>
+          <div className="flex flex-col gap-2">
+            <input 
+              type="date" 
+              value={dateFilter} 
+              onChange={handleDateChange}
+              className="bg-slate-800 text-white p-2 rounded-lg border border-slate-700"
+            />
+            <div className="bg-slate-800/80 p-3.5 rounded-xl border border-slate-700 flex items-center gap-3">
+              <Clock size={18} className="text-cyan-400" />
+              <div className="text-xs">
+                <span className="text-slate-400 block font-semibold">JADWAL UPDATE FPL:</span>
+                <span className="text-white font-bold">Setiap Hari Pukul 06.00 WIB</span>
+              </div>
             </div>
           </div>
         </div>
