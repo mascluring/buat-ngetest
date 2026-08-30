@@ -262,6 +262,58 @@ export default function ManagerDetail({ params }: { params: Promise<{ id: string
         )}
       </section>
 
+      {/* CAPTAIN PERFORMANCE */}
+      <section className="card p-6 my-6">
+        <div className="mb-6">
+          <div className="section-kicker">CAPTAIN PERFORMANCE</div>
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <Award size={20} className="text-rose-400" /> Riwayat performa kapten
+          </h2>
+        </div>
+
+        {data.captainPerformance && data.captainPerformance.length > 0 ? (
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+              <div className="bg-slate-900 p-4 rounded-lg border border-slate-700">
+                <div className="text-xs text-slate-400 uppercase font-semibold">Total Cap Points</div>
+                <div className="text-2xl font-black text-white">{fmt(data.captainPerformance.reduce((s: number, c: any) => s + c.captainPoints, 0))}</div>
+              </div>
+              <div className="bg-slate-900 p-4 rounded-lg border border-slate-700">
+                <div className="text-xs text-slate-400 uppercase font-semibold">Avg Cap Points</div>
+                <div className="text-2xl font-black text-white">{(data.captainPerformance.reduce((s: number, c: any) => s + c.captainPoints, 0) / data.captainPerformance.length).toFixed(1)}</div>
+              </div>
+              <div className="bg-slate-900 p-4 rounded-lg border border-slate-700">
+                <div className="text-xs text-slate-400 uppercase font-semibold">Best Captain</div>
+                <div className="text-2xl font-black text-white truncate">{[...data.captainPerformance].sort((a,b) => b.captainPoints - a.captainPoints)[0].captainName}</div>
+              </div>
+              <div className="bg-slate-900 p-4 rounded-lg border border-slate-700">
+                <div className="text-xs text-slate-400 uppercase font-semibold">Best Cap GW</div>
+                <div className="text-2xl font-black text-white">GW {[...data.captainPerformance].sort((a,b) => b.captainPoints - a.captainPoints)[0].event}</div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {data.captainPerformance.map((c: any) => (
+                <div key={c.event} className="bg-slate-900 p-4 rounded-lg border border-slate-700">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-lg font-black text-cyan-400">GW {c.event}</span>
+                    <span className="text-sm font-bold text-white">{c.captainName}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="text-slate-400">Raw Points: <span className="text-white font-bold">{c.rawPoints} pts</span></div>
+                    <div className="text-slate-400">Cap Points: <span className="text-white font-bold">{c.captainPoints} pts</span></div>
+                    <div className="text-slate-400">Multiplier: <span className="text-white font-bold">x{c.multiplier}</span></div>
+                    <div className="text-slate-400">Vice: <span className="text-white font-bold">{c.viceName}</span></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : (
+          <div className="text-slate-400 italic">Data performa kapten tidak tersedia.</div>
+        )}
+      </section>
+
       {/* LAPANGAN VISUAL FORMASI GAMEWEEK BERJALAN */}
       {picksList.length > 0 && (
         <section className="card p-6 my-6">

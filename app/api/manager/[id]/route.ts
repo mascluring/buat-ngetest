@@ -139,6 +139,41 @@ export async function GET(
       time: c.time,
     }));
 
+    // Fetch picks for all gameweeks
+    const captainPerformance = await Promise.all(
+      gwHistory.map(async (h: any) => {
+        const picksData = await getEntryPicks(entryId, h.event).catch(() => null);
+        if (!picksData) return null;
+        
+        const picks = picksData.picks || [];
+        const captainPick = picks.find((p: any) => p.is_captain);
+        const vicePick = picks.find((p: any) => p.is_vice_captain);
+
+        if (!captainPick) return null;
+
+        const captainPlayer = elementsMap.get(captainPick.element);
+        const vicePlayer = vicePick ? elementsMap.get(vicePick.element) : null;
+        
+        // We need live points for that GW. getLiveEvent(h.event)
+        const liveData = await getLiveEvent(h.event).catch(() => null);
+        const liveMapForGW = new Map<number, any>((liveData?.elements || []).map((el: any) => [el.id, el.stats]));
+        const captainStats = liveMapForGW.get(captainPick.element);
+        
+        const capMult = captainPick.multiplier || 1;
+        const rawPoints = captainStats?.total_points || 0;
+        const captainPoints = rawPoints * capMult;
+
+        return {
+          event: h.event,
+          captainName: captainPlayer?.web_name || '—',
+          viceName: vicePlayer?.web_name || '—',
+          rawPoints,
+          captainPoints,
+          multiplier: capMult,
+        };
+      })
+    );
+
     return NextResponse.json({
       ok: true,
       entry: {
@@ -171,6 +206,7 @@ export async function GET(
       currentGW,
       gwHistory,
       chipsUsed,
+      captainPerformance: captainPerformance.filter(Boolean),
     });
   } catch (err: any) {
     return NextResponse.json({ ok: false, error: err?.message || 'Server error' }, { status: 500 });
