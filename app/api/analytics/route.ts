@@ -1,12 +1,14 @@
 import { NextResponse } from 'next/server';
-import { getAllLeagueStandings, getBootstrap, LEAGUE_ID } from '@/lib/fpl';
+import { getAllLeagueStandings, getBootstrap, getLeague, LEAGUE_ID } from '@/lib/fpl';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function GET() {
   try {
-    const [{ first, standings }, boot] = await Promise.all([getAllLeagueStandings(), getBootstrap()]);
+    const [{ standings }, boot] = await Promise.all([getAllLeagueStandings(), getBootstrap()]);
+    // Assume we can get league info from standings[0] or we might need another approach
+    const league = standings.length > 0 ? await getLeague(1).then(r => r.league) : null;
     const current = boot.events?.find((e: any) => e.is_current)?.id ?? boot.events?.find((e: any) => e.is_next)?.id ?? null;
     const finished = boot.events?.filter((e: any) => e.finished) ?? [];
     const currentEvent = boot.events?.find((e: any) => e.id === current) ?? boot.events?.[finished.length - 1] ?? null;
@@ -41,7 +43,7 @@ export async function GET() {
     return NextResponse.json({
       ok: true,
       leagueId: LEAGUE_ID,
-      league: first.league,
+      league: league,
       current,
       currentEvent,
       finishedGameweeks: finished.length,

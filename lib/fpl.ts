@@ -90,29 +90,30 @@ export function getEntryHistory(id: number) {
 
 export async function getAllLeagueStandings() {
   const first = await getLeague(1);
-  const pages: LeagueResponse[] = [first];
-  let page = 1;
-
-  while (pages.at(-1)?.standings?.has_next && page < 20) {
-    const nextPages = await Promise.all(
-      Array.from({ length: 4 }, async (_, i) => {
-        const next = page + i + 1;
-        if (next > 20 || !pages.at(-1)?.standings?.has_next) return null;
-        try {
-          return await getLeague(next);
-        } catch {
-          return null;
-        }
-      })
-    );
-    for (const result of nextPages) {
-      if (result) pages.push(result);
-    }
-    page = pages.length;
-    if (!pages.at(-1)?.standings?.has_next) break;
-  }
+  const allStandings: Standing[] = [...(first.standings?.results ?? [])];
   
-  return { first, pages, standings: pages.flatMap((p) => p.standings?.results ?? []) };
+  let page = 1;
+  let hasNext = first.standings?.has_next;
+
+  while (hasNext && page < 20) {
+    page++;
+    try {
+      const nextLeague = await getLeague(page);
+      if (nextLeague.standings?.results) {
+        allStandings.push(...nextLeague.standings.results);
+      }
+      hasNext = nextLeague.standings?.has_next;
+    } catch {
+      break;
+    }
+  }
+
+  // Deduplicate based on entry ID
+  const uniqueStandings = Array.from(
+    new Map(allStandings.map((standing) => [standing.entry, standing])).values()
+  );
+  
+  return { standings: uniqueStandings };
 }
 
 export function getRankMovement(

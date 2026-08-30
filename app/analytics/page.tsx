@@ -26,14 +26,10 @@ export default function Analytics(){
  
  <section className="card my-4 p-6">
     <div className="section-kicker">TOP PERFORMERS</div>
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
         <div className="p-4 bg-slate-900/50 rounded-lg border border-slate-800">
             <div className="text-xs text-slate-400">Highest GW Score</div>
             <div className="text-xl font-bold">{data?.highestGWScore?.player_name || '—'}</div>
-        </div>
-        <div className="p-4 bg-slate-900/50 rounded-lg border border-slate-800">
-            <div className="text-xs text-slate-400">Highest Total Points</div>
-            <div className="text-xl font-bold">{data?.leader?.player_name}</div>
         </div>
         <div className="p-4 bg-slate-900/50 rounded-lg border border-slate-800">
             <div className="text-xs text-slate-400">League Leader</div>

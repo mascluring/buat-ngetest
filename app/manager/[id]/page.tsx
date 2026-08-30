@@ -223,6 +223,45 @@ export default function ManagerDetail({ params }: { params: Promise<{ id: string
         </div>
       </section>
 
+      {/* CHIP HISTORY */}
+      <section className="card p-6 my-6">
+        <div className="mb-4">
+          <div className="section-kicker">CHIP HISTORY</div>
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <Shield size={20} className="text-emerald-400" /> Riwayat penggunaan chip manager
+          </h2>
+        </div>
+        
+        {chipsUsed.length > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            {[...chipsUsed].sort((a, b) => a.event - b.event).map((c, i) => {
+              const chipMap: Record<string, string> = {
+                WILDCARD: 'Wildcard',
+                FREEHIT: 'Free Hit',
+                TRIPLE_CAPTAIN: 'Triple Captain',
+                '3XC': 'Triple Captain',
+                BBOOST: 'Bench Boost',
+                ASSISTANT_MANAGER: 'Assistant Manager',
+              };
+              const displayName = chipMap[c.name] || c.name.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase());
+              return (
+                <div key={i} className="bg-slate-900 p-3 rounded-lg border border-slate-700 flex items-center gap-3">
+                  <div className="bg-slate-800 p-2 rounded-md">
+                    <Shield size={16} className="text-emerald-400" />
+                  </div>
+                  <div className="flex flex-col">
+                    <div className="text-[10px] text-slate-400 font-semibold uppercase">{displayName}</div>
+                    <div className="text-sm font-black text-white">GW {c.event}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-slate-400 italic">Belum ada chip yang digunakan.</div>
+        )}
+      </section>
+
       {/* LAPANGAN VISUAL FORMASI GAMEWEEK BERJALAN */}
       {picksList.length > 0 && (
         <section className="card p-6 my-6">
