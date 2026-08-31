@@ -288,7 +288,9 @@ export default function ManagerDetail({ params }: { params: Promise<{ id: string
               </div>
               <div className="bg-slate-900 p-4 rounded-lg border border-slate-700">
                 <div className="text-xs text-slate-400 uppercase font-semibold">Best Cap GW</div>
-                <div className="text-2xl font-black text-white">GW {[...data.captainPerformance].sort((a,b) => b.captainPoints - a.captainPoints)[0].event}</div>
+                <div className="text-2xl font-black text-white">
+                  GW {[...data.captainPerformance].sort((a,b) => b.captainPoints - a.captainPoints)[0].event} • {[...data.captainPerformance].sort((a,b) => b.captainPoints - a.captainPoints)[0].captainPoints} pts
+                </div>
               </div>
             </div>
 
