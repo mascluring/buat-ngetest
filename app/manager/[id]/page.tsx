@@ -262,6 +262,31 @@ export default function ManagerDetail({ params }: { params: Promise<{ id: string
         )}
       </section>
 
+      {/* FORMATION FREQUENCY */}
+      <section className="card p-6 my-6">
+        <div className="mb-4">
+          <div className="section-kicker">FORMATION FREQUENCY</div>
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <BarChart2 size={20} className="text-indigo-400" /> Frekuensi Formasi
+          </h2>
+        </div>
+
+        {data.formationFrequency && Object.keys(data.formationFrequency).length > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+            {Object.entries(data.formationFrequency)
+              .sort(([, a], [, b]) => (b as number) - (a as number))
+              .map(([formation, count]) => (
+                <div key={formation} className="bg-slate-900 p-3 rounded-lg border border-slate-700 flex items-center justify-between">
+                  <span className="text-lg font-black text-cyan-400">{formation}</span>
+                  <span className="text-sm font-bold text-slate-400">{(count as number)} GW</span>
+                </div>
+              ))}
+          </div>
+        ) : (
+          <div className="text-slate-400 italic">Data formasi tidak tersedia.</div>
+        )}
+      </section>
+
       {/* CAPTAIN PERFORMANCE */}
       <section className="card p-6 my-6">
         <div className="mb-6">

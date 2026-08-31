@@ -140,12 +140,27 @@ export async function GET(
     }));
 
     // Fetch picks for all gameweeks
+    const formationFrequency: Record<string, number> = {};
     const captainPerformance = await Promise.all(
       gwHistory.map(async (h: any) => {
         const picksData = await getEntryPicks(entryId, h.event).catch(() => null);
         if (!picksData) return null;
         
         const picks = picksData.picks || [];
+        
+        // --- Formation calculation ---
+        const starters11 = picks.filter((p: any) => p.position <= 11);
+        let def = 0, mid = 0, fwd = 0;
+        starters11.forEach((p: any) => {
+          const el = elementsMap.get(p.element);
+          if (el?.element_type === 2) def++;
+          else if (el?.element_type === 3) mid++;
+          else if (el?.element_type === 4) fwd++;
+        });
+        const formation = `${def}-${mid}-${fwd}`;
+        formationFrequency[formation] = (formationFrequency[formation] || 0) + 1;
+        // -----------------------------
+
         const captainPick = picks.find((p: any) => p.is_captain);
         const vicePick = picks.find((p: any) => p.is_vice_captain);
 
@@ -207,6 +222,7 @@ export async function GET(
       gwHistory,
       chipsUsed,
       captainPerformance: captainPerformance.filter(Boolean),
+      formationFrequency,
     });
   } catch (err: any) {
     return NextResponse.json({ ok: false, error: err?.message || 'Server error' }, { status: 500 });
