@@ -6,7 +6,7 @@ import { ArrowDown, ArrowUp, Crown, Medal, RefreshCw, Search, Trophy, Users, Zap
 const fmt=(n:number)=>new Intl.NumberFormat('id-ID').format(n);
 const initials=(name:string)=>name.split(' ').filter(Boolean).map(x=>x[0]).slice(0,2).join('').toUpperCase();
 type Row={entry:number;entry_name:string;player_name:string;rank:number;last_rank:number;total:number;event_total:number};
-type PickPlayer={id:number;name:string;elementType:number;teamCode:number;teamShortName:string;jerseyUrl:string;position:number;multiplier:number;isCaptain:boolean;isVice:boolean;points:number;rawPoints:number;minutes:number};
+type PickPlayer={id:number;name:string;elementType:number;teamCode:number;teamShortName:string;jerseyUrl:string;position:number;multiplier:number;isCaptain:boolean;isVice:boolean;points:number;rawPoints:number;minutes:number;goals_scored:number;assists:number;saves:number;clean_sheets:number;bonus:number;yellow_cards:number;red_cards:number;own_goals:number};
 type Detail={
   entry:number;
   captainName:string;
@@ -33,6 +33,8 @@ export default function Home(){
  const [data,setData]=useState<Data|null>(null),[analytics,setAnalytics]=useState<any>(null),[loading,setLoading]=useState(true),[error,setError]=useState(''),[query,setQuery]=useState(''),[page,setPage]=useState(1),[sort,setSort]=useState<'rank'|'gw'|'total'|'move'>('rank');
  const [expandedEntry, setExpandedEntry] = useState<number|null>(null);
  const [viewMode, setViewMode] = useState<'pitch'|'list'>('pitch');
+ const [selectedPlayer, setSelectedPlayer] = useState<any>(null);
+ const closePlayerPopup = () => setSelectedPlayer(null);
 
  const load=async(p=page)=>{setLoading(true);setError('');try{
     const [r1, r2] = await Promise.all([
@@ -196,7 +198,7 @@ export default function Home(){
 
                  {/* LAPANGAN HIJAU PITCH VIEW */}
                  {viewMode === 'pitch' ? (
-                   <PitchView detail={detail} picksList={detail?.picksList || []} />
+                   <PitchView detail={detail} picksList={detail?.picksList || []} onPlayerClick={(p) => setSelectedPlayer(p)} />
                  ) : (
                    <ListView picksList={detail?.picksList || []} />
                  )}
@@ -217,8 +219,18 @@ export default function Home(){
  </main>
 }
 
+function StatRow({ label, value, points }: { label: string; value: number; points: number }) {
+  return (
+    <div className="grid grid-cols-3 gap-2 items-center">
+      <div className="text-slate-200">{label}</div>
+      <div className="text-center font-bold text-white">{value}</div>
+      <div className="text-right font-bold text-emerald-400">{points} pts</div>
+    </div>
+  );
+}
+
 // Komponen Pitch View Lapangan Hijau persis seperti gambar FPL
-function PitchView({ detail, picksList }: { detail?: Detail; picksList: PickPlayer[] }) {
+function PitchView({ detail, picksList, onPlayerClick }: { detail?: Detail; picksList: PickPlayer[]; onPlayerClick: (p: PickPlayer) => void }) {
   const starters = picksList.filter(p => p.position <= 11);
   const bench = picksList.filter(p => p.position > 11);
 
@@ -236,22 +248,22 @@ function PitchView({ detail, picksList }: { detail?: Detail; picksList: PickPlay
 
       {/* GKP */}
       <div className="flex justify-center my-3 relative z-10">
-        {gkp.map(p => <PlayerCard key={p.id} player={p} />)}
+        {gkp.map(p => <PlayerCard key={p.id} player={p} onClick={() => onPlayerClick(p)} />)}
       </div>
 
       {/* DEF */}
       <div className="flex justify-around my-4 relative z-10">
-        {def.map(p => <PlayerCard key={p.id} player={p} />)}
+        {def.map(p => <PlayerCard key={p.id} player={p} onClick={() => onPlayerClick(p)} />)}
       </div>
 
       {/* MID */}
       <div className="flex justify-around my-4 relative z-10">
-        {mid.map(p => <PlayerCard key={p.id} player={p} />)}
+        {mid.map(p => <PlayerCard key={p.id} player={p} onClick={() => onPlayerClick(p)} />)}
       </div>
 
       {/* FWD */}
       <div className="flex justify-around my-4 relative z-10">
-        {fwd.map(p => <PlayerCard key={p.id} player={p} />)}
+        {fwd.map(p => <PlayerCard key={p.id} player={p} onClick={() => onPlayerClick(p)} />)}
       </div>
 
       {/* BENCH SECTION */}
@@ -259,7 +271,7 @@ function PitchView({ detail, picksList }: { detail?: Detail; picksList: PickPlay
         <div className="mt-8 pt-4 border-t border-emerald-300/30 relative z-10 bg-black/40 rounded-xl p-3">
           <div className="text-xs uppercase font-bold text-emerald-200 mb-2">BENCH PLAYERS ({detail?.benchPoints || 0} PTS)</div>
           <div className="flex justify-around">
-            {bench.map(p => <PlayerCard key={p.id} player={p} isBench />)}
+            {bench.map(p => <PlayerCard key={p.id} player={p} isBench onClick={() => onPlayerClick(p)} />)}
           </div>
         </div>
       )}
@@ -267,9 +279,56 @@ function PitchView({ detail, picksList }: { detail?: Detail; picksList: PickPlay
   );
 }
 
-function PlayerCard({ player, isBench }: { player: PickPlayer; isBench?: boolean }) {
+function PlayerPopup({ player, onClose }: { player: PickPlayer; onClose: () => void }) {
   return (
-    <div className={`player-card text-center flex flex-col items-center mx-1 ${isBench ? 'opacity-90' : ''}`}>
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-slate-900 rounded-xl border border-slate-700 max-w-sm w-full shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="p-6 border-b border-slate-800">
+          <h3 className="text-2xl font-black text-white">{player.name}</h3>
+        </div>
+        
+        <div className="p-6">
+          <h4 className="text-lg font-bold text-white mb-4">Points breakdown</h4>
+          
+          <div className="grid grid-cols-3 gap-2 text-sm text-slate-400 mb-2 font-semibold uppercase tracking-wider">
+            <div>Statistic</div>
+            <div className="text-center">Value</div>
+            <div className="text-right">Points</div>
+          </div>
+
+          <div className="space-y-3 text-sm text-slate-300">
+            <StatRow label="Minutes played" value={player.minutes} points={player.minutes >= 60 ? 2 : player.minutes > 0 ? 1 : 0} />
+            <StatRow label="Goals scored" value={player.goals_scored} points={player.goals_scored * 4} />
+            <StatRow label="Assists" value={player.assists} points={player.assists * 3} />
+            <StatRow label="Clean sheets" value={player.clean_sheets} points={player.elementType >= 2 ? 4 : 6} />
+            <StatRow label="Saves" value={player.elementType === 1 ? player.saves : 0} points={player.elementType === 1 ? Math.floor(player.saves / 3) : 0} />
+            <StatRow label="Bonus" value={player.bonus} points={player.bonus} />
+            <StatRow label="Yellow Cards (YC)" value={player.yellow_cards} points={player.yellow_cards * -1} />
+            <StatRow label="Red Cards (xA)" value={player.red_cards} points={player.red_cards * -3} />
+            <StatRow label="Own Goals" value={player.own_goals} points={player.own_goals * -2} />
+            <StatRow label="Def. contrib" value={player.goals_scored + player.assists} points={(player.goals_scored * 4) + (player.assists * 3)} />
+          </div>
+
+          <div className="mt-6 pt-4 border-t border-slate-700 flex justify-between items-center text-white">
+            <span className="font-bold text-lg">Total Points:</span>
+            <span className="font-black text-2xl">{player.points}</span>
+          </div>
+        </div>
+        
+        <div className="p-4 bg-slate-800">
+          <button onClick={onClose} className="w-full bg-slate-700 py-2 rounded-lg text-sm font-semibold text-white hover:bg-slate-600">Tutup</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PlayerCard({ player, isBench, onClick }: { player: PickPlayer; isBench?: boolean; onClick?: () => void }) {
+  return (
+    <div 
+      className={`player-card text-center flex flex-col items-center mx-1 ${isBench ? 'opacity-90' : ''} cursor-pointer transition-all duration-300 ease-out active:scale-95 active:shadow-[0_0_15px_rgba(255,255,255,0.5)]`}
+      onClick={onClick}
+    >
       <div className="jersey-icon relative mb-1.5 flex justify-center items-center">
         {player.jerseyUrl ? (
           <img 

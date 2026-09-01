@@ -27,6 +27,10 @@ export async function GET(request: Request) {
 
     const fixtures = await getFixtures(targetGwId);
 
+    const elements = bootstrap.elements || [];
+    const elementMap = new Map();
+    elements.forEach((el: any) => elementMap.set(el.id, el));
+
     // Map teams data
     const teamMap = new Map();
     teams.forEach((t: any) => teamMap.set(t.id, t));
@@ -34,6 +38,13 @@ export async function GET(request: Request) {
     const mappedFixtures = fixtures.map((f: any) => {
       const homeTeam = teamMap.get(f.team_h) || {};
       const awayTeam = teamMap.get(f.team_a) || {};
+
+      // Parse stats
+      const parsedStats = (f.stats || []).map((s: any) => ({
+        identifier: s.identifier,
+        h: s.h.map((item: any) => ({ ...item, name: elementMap.get(item.element)?.web_name })),
+        a: s.a.map((item: any) => ({ ...item, name: elementMap.get(item.element)?.web_name })),
+      }));
       
       return {
         id: f.id,
@@ -44,6 +55,7 @@ export async function GET(request: Request) {
         team_h_score: f.team_h_score,
         team_a_score: f.team_a_score,
         minutes: f.minutes,
+        stats: parsedStats,
         homeTeam: {
           id: homeTeam.id,
           name: homeTeam.name,

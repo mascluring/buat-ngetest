@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { use, useEffect, useState } from 'react';
-import { ArrowLeft, RefreshCw, Sparkles, Trophy, TrendingUp, Shield, BarChart2, Award } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Sparkles, Trophy, TrendingUp, Shield, BarChart2, Award, ArrowLeftRight } from 'lucide-react';
 
 const fmt = (n: number) => new Intl.NumberFormat('id-ID').format(n);
 const initials = (name: string) => name.split(' ').filter(Boolean).map(x => x[0]).slice(0, 2).join('').toUpperCase();
@@ -11,6 +11,9 @@ export default function ManagerDetail({ params }: { params: Promise<{ id: string
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [selectedPlayer, setSelectedPlayer] = useState<any>(null);
+
+  const closePlayerPopup = () => setSelectedPlayer(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -56,6 +59,13 @@ export default function ManagerDetail({ params }: { params: Promise<{ id: string
 
   const { entry, detail, currentGW, gwHistory = [], chipsUsed = [] } = data;
   const picksList = detail?.picksList || [];
+
+  // Calculate transfer stats
+  const totalTransfers = gwHistory.reduce((s: number, h: any) => s + (h.transfers || 0), 0);
+  const totalTransferCost = gwHistory.reduce((s: number, h: any) => s + (h.transfersCost || 0), 0);
+  const mostActiveGW = gwHistory.length > 0 ? [...gwHistory].sort((a, b) => b.transfers - a.transfers || a.event - b.event)[0] : null;
+  const hitGWCount = gwHistory.filter((h: any) => h.transfersCost > 0).length;
+  const transferHistory = gwHistory.filter((h: any) => h.transfers > 0);
 
   // Calculate highest & lowest rank
   const ranks = gwHistory.map((h: any) => h.overallRank).filter(Boolean);
@@ -341,6 +351,66 @@ export default function ManagerDetail({ params }: { params: Promise<{ id: string
         )}
       </section>
 
+      {/* TRANSFER ACTIVITY */}
+      <section className="card p-6 my-6">
+        <div className="mb-6">
+          <div className="section-kicker">TRANSFER ACTIVITY</div>
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <ArrowLeftRight size={20} className="text-amber-400" /> Ringkasan Aktivitas Transfer
+          </h2>
+        </div>
+
+        {gwHistory.length > 0 ? (
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+              <div className="bg-slate-900 p-4 rounded-lg border border-slate-700">
+                <div className="text-xs text-slate-400 uppercase font-semibold">Total Transfers</div>
+                <div className="text-2xl font-black text-white">{totalTransfers}</div>
+              </div>
+              <div className="bg-slate-900 p-4 rounded-lg border border-slate-700">
+                <div className="text-xs text-slate-400 uppercase font-semibold">Total Transfer Cost</div>
+                <div className="text-2xl font-black text-white">{totalTransferCost > 0 ? `-${totalTransferCost} pts` : '0 pts'}</div>
+              </div>
+              <div className="bg-slate-900 p-4 rounded-lg border border-slate-700">
+                <div className="text-xs text-slate-400 uppercase font-semibold">Most Active GW</div>
+                <div className="text-2xl font-black text-white truncate">{mostActiveGW ? `GW ${mostActiveGW.event} • ${mostActiveGW.transfers} Transfers` : '—'}</div>
+              </div>
+              <div className="bg-slate-900 p-4 rounded-lg border border-slate-700">
+                <div className="text-xs text-slate-400 uppercase font-semibold">Hit GW</div>
+                <div className="text-2xl font-black text-white">{hitGWCount} GW</div>
+              </div>
+            </div>
+
+            {transferHistory.length > 0 ? (
+              <div className="table-scroll">
+                <table className="rank-table w-full">
+                  <thead>
+                    <tr>
+                      <th className="text-center">GW</th>
+                      <th className="text-center">Transfers</th>
+                      <th className="text-center">Transfer Cost</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {transferHistory.map((h: any) => (
+                      <tr key={h.event}>
+                        <td className="text-center font-bold text-cyan-400">GW{h.event}</td>
+                        <td className="text-center font-bold text-white font-mono">{h.transfers}</td>
+                        <td className="text-center font-mono text-rose-400">{h.transfersCost > 0 ? `-${h.transfersCost} pts` : '0 pts'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="text-slate-400 italic">Belum ada aktivitas transfer.</div>
+            )}
+          </>
+        ) : (
+          <div className="text-slate-400 italic">Data aktivitas transfer belum tersedia.</div>
+        )}
+      </section>
+
       {/* LAPANGAN VISUAL FORMASI GAMEWEEK BERJALAN */}
       {picksList.length > 0 && (
         <section className="card p-6 my-6">
@@ -359,28 +429,28 @@ export default function ManagerDetail({ params }: { params: Promise<{ id: string
             {/* GKP */}
             <div className="flex justify-center my-3 relative z-10">
               {picksList.filter((p: any) => p.position <= 11 && p.elementType === 1).map((p: any) => (
-                <PlayerCard key={p.id} player={p} />
+                <PlayerCard key={p.id} player={p} onClick={() => setSelectedPlayer(p)} />
               ))}
             </div>
 
             {/* DEF */}
             <div className="flex justify-around my-4 relative z-10">
               {picksList.filter((p: any) => p.position <= 11 && p.elementType === 2).map((p: any) => (
-                <PlayerCard key={p.id} player={p} />
+                <PlayerCard key={p.id} player={p} onClick={() => setSelectedPlayer(p)} />
               ))}
             </div>
 
             {/* MID */}
             <div className="flex justify-around my-4 relative z-10">
               {picksList.filter((p: any) => p.position <= 11 && p.elementType === 3).map((p: any) => (
-                <PlayerCard key={p.id} player={p} />
+                <PlayerCard key={p.id} player={p} onClick={() => setSelectedPlayer(p)} />
               ))}
             </div>
 
             {/* FWD */}
             <div className="flex justify-around my-4 relative z-10">
               {picksList.filter((p: any) => p.position <= 11 && p.elementType === 4).map((p: any) => (
-                <PlayerCard key={p.id} player={p} />
+                <PlayerCard key={p.id} player={p} onClick={() => setSelectedPlayer(p)} />
               ))}
             </div>
 
@@ -389,20 +459,69 @@ export default function ManagerDetail({ params }: { params: Promise<{ id: string
               <div className="text-xs uppercase font-bold text-emerald-200 mb-2">BENCH PLAYERS ({detail.benchPoints} PTS)</div>
               <div className="flex justify-around">
                 {picksList.filter((p: any) => p.position > 11).map((p: any) => (
-                  <PlayerCard key={p.id} player={p} isBench />
+                  <PlayerCard key={p.id} player={p} isBench onClick={() => setSelectedPlayer(p)} />
                 ))}
               </div>
             </div>
           </div>
         </section>
       )}
+      {selectedPlayer && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={closePlayerPopup}>
+          <div className="bg-slate-900 rounded-xl border border-slate-700 max-w-sm w-full shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="p-6 border-b border-slate-800">
+              <h3 className="text-2xl font-black text-white">{selectedPlayer.name}</h3>
+            </div>
+            
+            <div className="p-6">
+              <h4 className="text-lg font-bold text-white mb-4">Points breakdown</h4>
+              
+              <div className="grid grid-cols-3 gap-2 text-sm text-slate-400 mb-2 font-semibold uppercase tracking-wider">
+                <div>Statistic</div>
+                <div className="text-center">Value</div>
+                <div className="text-right">Points</div>
+              </div>
+
+              <div className="space-y-3 text-sm text-slate-300">
+                {/* Rows based on the reference format */}
+                <StatRow label="Minutes played" value={selectedPlayer.minutes} points={selectedPlayer.minutes >= 60 ? 2 : selectedPlayer.minutes > 0 ? 1 : 0} />
+                <StatRow label="Goals scored" value={selectedPlayer.goals_scored} points={selectedPlayer.goals_scored * 4} /> {/* Assuming 4 pts for goal */}
+                <StatRow label="Assists" value={selectedPlayer.assists} points={selectedPlayer.assists * 3} /> {/* Assuming 3 pts for assist */}
+                <StatRow label="Bonus" value={selectedPlayer.bonus} points={selectedPlayer.bonus} />
+              </div>
+
+              <div className="mt-6 pt-4 border-t border-slate-700 flex justify-between items-center text-white">
+                <span className="font-bold text-lg">Total Points:</span>
+                <span className="font-black text-2xl">{selectedPlayer.points}</span>
+              </div>
+            </div>
+            
+            <div className="p-4 bg-slate-800">
+              <button onClick={closePlayerPopup} className="w-full bg-slate-700 py-2 rounded-lg text-sm font-semibold text-white hover:bg-slate-600">Tutup</button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
 
-function PlayerCard({ player, isBench }: { player: any; isBench?: boolean }) {
+function StatRow({ label, value, points }: { label: string; value: number; points: number }) {
   return (
-    <div className={`player-card text-center flex flex-col items-center mx-1 ${isBench ? 'opacity-90' : ''}`}>
+    <div className="grid grid-cols-3 gap-2 items-center">
+      <div className="text-slate-200">{label}</div>
+      <div className="text-center font-bold text-white">{value}</div>
+      <div className="text-right font-bold text-emerald-400">{points} pts</div>
+    </div>
+  );
+}
+
+function PlayerCard({ player, isBench, onClick }: { player: any; isBench?: boolean; onClick?: () => void }) {
+  return (
+    <div 
+      className={`player-card text-center flex flex-col items-center mx-1 ${isBench ? 'opacity-90' : ''} cursor-pointer transition-all duration-300 ease-out active:scale-95 active:shadow-[0_0_15px_rgba(255,255,255,0.5)]`} 
+      onClick={onClick}
+    >
       <div className="jersey-icon relative mb-1.5 flex justify-center items-center">
         {player.jerseyUrl ? (
           <img 

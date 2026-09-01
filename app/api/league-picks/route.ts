@@ -120,6 +120,14 @@ export async function GET(req: Request) {
                 points: (stats.total_points || 0) * mult,
                 rawPoints: stats.total_points || 0,
                 minutes: stats.minutes || 0,
+                goals_scored: stats.goals_scored || 0,
+                assists: stats.assists || 0,
+                saves: stats.saves || 0,
+                clean_sheets: stats.clean_sheets || 0,
+                bonus: stats.bonus || 0,
+                yellow_cards: stats.yellow_cards || 0,
+                red_cards: stats.red_cards || 0,
+                own_goals: stats.own_goals || 0,
               };
             });
 

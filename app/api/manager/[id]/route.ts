@@ -117,6 +117,11 @@ export async function GET(
         points: (stats.total_points || 0) * mult,
         rawPoints: stats.total_points || 0,
         minutes: stats.minutes || 0,
+        saves: stats.saves || 0,
+        bonus: stats.bonus || 0,
+        clean_sheets: stats.clean_sheets || 0,
+        goals_scored: stats.goals_scored || 0,
+        assists: stats.assists || 0,
       };
     });
 
