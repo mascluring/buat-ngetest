@@ -303,10 +303,10 @@ function PlayerPopup({ player, onClose }: { player: PickPlayer; onClose: () => v
             <StatRow label="Clean sheets" value={player.clean_sheets} points={player.elementType >= 2 ? 4 : 6} />
             <StatRow label="Saves" value={player.elementType === 1 ? player.saves : 0} points={player.elementType === 1 ? Math.floor(player.saves / 3) : 0} />
             <StatRow label="Bonus" value={player.bonus} points={player.bonus} />
+            <StatRow label="Def. contrib" value={player.goals_scored + player.assists} points={(player.goals_scored * 4) + (player.assists * 3)} />
             <StatRow label="Yellow Cards (YC)" value={player.yellow_cards} points={player.yellow_cards * -1} />
             <StatRow label="Red Cards (xA)" value={player.red_cards} points={player.red_cards * -3} />
             <StatRow label="Own Goals" value={player.own_goals} points={player.own_goals * -2} />
-            <StatRow label="Def. contrib" value={player.goals_scored + player.assists} points={(player.goals_scored * 4) + (player.assists * 3)} />
           </div>
 
           <div className="mt-6 pt-4 border-t border-slate-700 flex justify-between items-center text-white">

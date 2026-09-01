@@ -148,6 +148,102 @@ export default function ManagerDetail({ params }: { params: Promise<{ id: string
         </div>
       </div>
 
+      {/* MANAGER PERFORMANCE INSIGHTS */}
+      <section className="card p-6 my-6 bg-slate-900/90 border-slate-700">
+        <div className="mb-6">
+          <div className="section-kicker">MANAGER PERFORMANCE INSIGHTS</div>
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <Sparkles size={20} className="text-cyan-400" /> Insight Performa Manager
+          </h2>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* 1. Best Gameweek */}
+          <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800 flex flex-col justify-between">
+            <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Best Gameweek</span>
+            <div className="mt-2">
+              {data.performanceInsights?.bestGameweek ? (
+                <>
+                  <div className="text-2xl font-black text-emerald-400">GW {data.performanceInsights.bestGameweek.event}</div>
+                  <div className="text-sm font-bold text-white mt-0.5">{data.performanceInsights.bestGameweek.points} pts</div>
+                </>
+              ) : (
+                <div className="text-sm text-slate-400 italic">Belum ada data</div>
+              )}
+            </div>
+          </div>
+
+          {/* 2. Worst Gameweek */}
+          <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800 flex flex-col justify-between">
+            <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Worst Gameweek</span>
+            <div className="mt-2">
+              {data.performanceInsights?.worstGameweek ? (
+                <>
+                  <div className="text-2xl font-black text-rose-400">GW {data.performanceInsights.worstGameweek.event}</div>
+                  <div className="text-sm font-bold text-white mt-0.5">{data.performanceInsights.worstGameweek.points} pts</div>
+                </>
+              ) : (
+                <div className="text-sm text-slate-400 italic">Belum ada data</div>
+              )}
+            </div>
+          </div>
+
+          {/* 3. Most Productive Captain */}
+          <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800 flex flex-col justify-between">
+            <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Most Productive Captain</span>
+            <div className="mt-2">
+              {data.performanceInsights?.productiveCaptain ? (
+                <>
+                  <div className="text-lg font-black text-amber-400 truncate">{data.performanceInsights.productiveCaptain.name}</div>
+                  <div className="text-xs text-slate-300 mt-0.5">
+                    <b className="text-white">{data.performanceInsights.productiveCaptain.totalPoints} pts</b> • {data.performanceInsights.productiveCaptain.timesCaptained} kali menjadi captain
+                  </div>
+                </>
+              ) : (
+                <div className="text-sm text-slate-400 italic">Belum ada data kapten</div>
+              )}
+            </div>
+          </div>
+
+          {/* 4. Favorite Formation */}
+          <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800 flex flex-col justify-between">
+            <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Favorite Formation</span>
+            <div className="mt-2">
+              {data.performanceInsights?.favoriteFormation ? (
+                <>
+                  <div className="text-2xl font-black text-cyan-400">{data.performanceInsights.favoriteFormation.formation}</div>
+                  <div className="text-xs text-slate-300 mt-0.5">
+                    <b className="text-white">{data.performanceInsights.favoriteFormation.count} kali digunakan</b> ({data.performanceInsights.favoriteFormation.percentage}% dari total GW)
+                  </div>
+                </>
+              ) : (
+                <div className="text-sm text-slate-400 italic">Belum ada data formasi</div>
+              )}
+            </div>
+          </div>
+
+          {/* 5. Total Transfers */}
+          <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800 flex flex-col justify-between">
+            <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Total Transfers</span>
+            <div className="mt-2">
+              <div className="text-2xl font-black text-indigo-400">{data.performanceInsights?.totalTransfers ?? 0} transfer</div>
+              <div className="text-xs text-slate-400 mt-0.5">Sepanjang musim</div>
+            </div>
+          </div>
+
+          {/* 6. Transfer Cost */}
+          <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800 flex flex-col justify-between">
+            <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Transfer Cost</span>
+            <div className="mt-2">
+              <div className={`text-2xl font-black ${(data.performanceInsights?.totalTransferCost || 0) > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                {(data.performanceInsights?.totalTransferCost || 0) > 0 ? `-${data.performanceInsights.totalTransferCost} pts` : '0 pts'}
+              </div>
+              <div className="text-xs text-slate-400 mt-0.5">Total biaya transfer</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* GRAFIK PERJALANAN RANKING (OVERALL RANK HISTORY) */}
       <section className="card chart-card my-6 p-6">
         <div className="flex justify-between items-center mb-4">
@@ -231,6 +327,95 @@ export default function ManagerDetail({ params }: { params: Promise<{ id: string
             </tbody>
           </table>
         </div>
+      </section>
+
+      {/* TRANSFER HISTORY */}
+      <section className="card p-6 my-6">
+        <div className="mb-6">
+          <div className="section-kicker">TRANSFER HISTORY</div>
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <ArrowLeftRight size={20} className="text-cyan-400" /> Riwayat Transfer Manager
+          </h2>
+        </div>
+
+        {data.transferHistory && data.transferHistory.length > 0 ? (
+          <div className="space-y-4">
+            {data.transferHistory.map((th: any) => (
+              <div key={th.event} className="bg-slate-900 p-5 rounded-xl border border-slate-700/80 shadow-lg">
+                <div className="flex flex-wrap justify-between items-center gap-2 mb-4 pb-3 border-b border-slate-800">
+                  <div className="flex items-center gap-3">
+                    <span className="text-lg font-black text-cyan-400">GW {th.event}</span>
+                    {th.chip === 'WILDCARD' && (
+                      <span className="bg-purple-600/30 text-purple-300 border border-purple-500/50 px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider">
+                        WILDCARD
+                      </span>
+                    )}
+                    {th.chip === 'FREEHIT' && (
+                      <span className="bg-amber-600/30 text-amber-300 border border-amber-500/50 px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider">
+                        FREE HIT
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-4 text-xs font-mono">
+                    <span className="text-slate-300">Transfers: <b className="text-white">{th.transfers}</b></span>
+                    <span className="text-slate-300">Cost: <b className={th.cost > 0 ? 'text-rose-400' : 'text-emerald-400'}>{th.cost > 0 ? `-${th.cost} pts` : '0 pts'}</b></span>
+                  </div>
+                </div>
+
+                {th.isTemporary ? (
+                  <div className="bg-slate-950/60 p-4 rounded-lg border border-amber-500/20 text-center py-6">
+                    <p className="text-amber-300 font-bold mb-1">Temporary Squad (Free Hit)</p>
+                    <p className="text-xs text-slate-400">Tidak ada permanent transfer pada Gameweek ini.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* OUT LIST */}
+                    <div className="bg-slate-950/60 p-3 rounded-lg border border-rose-950/50">
+                      <div className="text-xs font-bold text-rose-400 uppercase tracking-wider mb-2 pb-1 border-b border-slate-800 flex items-center gap-1.5">
+                        <span>🔴 OUT</span> ({th.transfersOut.length})
+                      </div>
+                      {th.transfersOut.length > 0 ? (
+                        <div className="space-y-2">
+                          {th.transfersOut.map((p: any) => (
+                            <div key={p.id} className="flex items-center justify-between bg-slate-900/80 px-3 py-2 rounded border border-slate-800 text-xs">
+                              <span className="font-bold text-white">{p.name}</span>
+                              <span className="text-slate-400 font-mono">{p.team} • {p.position}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-xs text-slate-500 italic py-2 text-center">Tidak ada pemain keluar</div>
+                      )}
+                    </div>
+
+                    {/* IN LIST */}
+                    <div className="bg-slate-950/60 p-3 rounded-lg border border-emerald-950/50">
+                      <div className="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-2 pb-1 border-b border-slate-800 flex items-center gap-1.5">
+                        <span>🟢 IN</span> ({th.transfersIn.length})
+                      </div>
+                      {th.transfersIn.length > 0 ? (
+                        <div className="space-y-2">
+                          {th.transfersIn.map((p: any) => (
+                            <div key={p.id} className="flex items-center justify-between bg-slate-900/80 px-3 py-2 rounded border border-slate-800 text-xs">
+                              <span className="font-bold text-white">{p.name}</span>
+                              <span className="text-slate-400 font-mono">{p.team} • {p.position}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-xs text-slate-500 italic py-2 text-center">Tidak ada pemain masuk</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-slate-400 italic text-center py-6 bg-slate-900/50 rounded-xl border border-slate-800">
+            Belum ada riwayat transfer yang tersedia.
+          </div>
+        )}
       </section>
 
       {/* CHIP HISTORY */}
