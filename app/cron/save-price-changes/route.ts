@@ -30,14 +30,37 @@ export async function GET(request: Request) {
     const recordsToInsert: any[] = [];
 
     // 2. Filter pemain yang harganya berubah (cost_change_event !== 0)
-    elements.forEach((el: any) => {
+    const candidates = elements.filter((el: any) => el.cost_change_event !== 0 || el.cost_change_event_fall > 0);
+    const playerIds = candidates.map((el: any) => el.id);
+
+    // Fetch last records to avoid duplicates
+    const { data: lastChanges } = await supabase
+      .from('price_changes')
+      .select('player_id, now_cost, change_type')
+      .in('player_id', playerIds)
+      .order('change_date', { ascending: false });
+    
+    const lastChangesMap = new Map<number, {now_cost: number, change_type: string}>();
+    lastChanges?.forEach(row => {
+        if (!lastChangesMap.has(row.player_id)) {
+            lastChangesMap.set(row.player_id, {now_cost: row.now_cost, change_type: row.change_type});
+        }
+    });
+
+    candidates.forEach((el: any) => {
       const costChange = el.cost_change_event || 0;
       const costChangeFall = el.cost_change_event_fall || 0;
+      const nowCost = Number((el.now_cost / 10).toFixed(1));
+      const team = teamsMap.get(el.team) || {};
+      const isRiser = costChange > 0;
+      const changeType = isRiser ? 'Riser' : 'Faller';
 
-      if (costChange !== 0 || costChangeFall > 0) {
-        const team = teamsMap.get(el.team) || {};
-        const isRiser = costChange > 0;
-        
+      const lastRecord = lastChangesMap.get(el.id);
+      const shouldInsert = !lastRecord || 
+                           lastRecord.now_cost !== nowCost || 
+                           lastRecord.change_type !== changeType;
+      
+      if (shouldInsert) {
         // Hitung nominal perubahan harga
         const priceChangeVal = isRiser 
           ? Number((costChange * 0.1).toFixed(1)) 
@@ -47,9 +70,9 @@ export async function GET(request: Request) {
           player_id: el.id,
           web_name: el.web_name,
           team_short_name: team.short_name || '',
-          change_type: isRiser ? 'Riser' : 'Faller',
+          change_type: changeType,
           price_change: priceChangeVal,
-          now_cost: Number((el.now_cost / 10).toFixed(1)),
+          now_cost: nowCost,
           selected_by_percent: el.selected_by_percent,
           change_date: dateStr,
         });
