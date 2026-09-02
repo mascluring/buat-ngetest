@@ -1,0 +1,6 @@
+{
+  "name": "Era Super League",
+  "description": "Era Super League Fantasy Premier League dashboard, analytics, live standings, and player stats",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

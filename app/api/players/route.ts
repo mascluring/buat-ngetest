@@ -140,7 +140,15 @@ export async function GET() {
         predicted_progress: `${clampedPredicted.toFixed(1)}%`,
         next_3_gw: getNext3Fixtures(p.team),
         form: parseFloat(p.form).toFixed(1),
-        eo_percent: `${p.selected_by_percent}%`
+        eo_percent: `${p.selected_by_percent}%`,
+        total_points: p.total_points,
+        goals_scored: p.goals_scored,
+        assists: p.assists,
+        clean_sheets: p.clean_sheets,
+        bonus: p.bonus,
+        yellow_cards: p.yellow_cards,
+        red_cards: p.red_cards,
+        saves: p.saves
       };
     });
 

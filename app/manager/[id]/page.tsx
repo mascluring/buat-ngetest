@@ -1,13 +1,13 @@
 'use client';
 import Link from 'next/link';
-import { use, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ArrowLeft, RefreshCw, Sparkles, Trophy, TrendingUp, Shield, BarChart2, Award, ArrowLeftRight } from 'lucide-react';
 
 const fmt = (n: number) => new Intl.NumberFormat('id-ID').format(n);
 const initials = (name: string) => name.split(' ').filter(Boolean).map(x => x[0]).slice(0, 2).join('').toUpperCase();
 
-export default function ManagerDetail({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
+export default function ManagerDetail({ params }: { params: { id: string } }) {
+  const id = params?.id;
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -596,6 +596,126 @@ export default function ManagerDetail({ params }: { params: Promise<{ id: string
         )}
       </section>
 
+      {/* SQUAD EVOLUTION SECTION (V5.9) */}
+      <section className="card p-6 my-6 bg-slate-900/90 border-slate-700">
+        <div className="flex items-center justify-between border-b border-slate-700/60 pb-4 mb-6">
+          <div>
+            <div className="section-kicker text-cyan-400 text-xs font-bold uppercase tracking-wider mb-1">SQUAD EVOLUTION</div>
+            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+              <Shield size={20} className="text-cyan-400" /> Skuad & Riwayat Pemain
+            </h2>
+            <p className="text-slate-400 text-xs mt-0.5">Perjalanan skuad dan riwayat pemain sepanjang musim.</p>
+          </div>
+        </div>
+
+        {data.squadEvolution && data.squadEvolution.players && data.squadEvolution.players.length > 0 ? (
+          <>
+            {/* Summary Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+              <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                <div className="text-xs text-slate-400 uppercase font-semibold">Total Unique Players</div>
+                <div className="text-2xl font-black text-white mt-1">{data.squadEvolution.summary.totalUniquePlayers} <span className="text-xs text-slate-400 font-normal">Players</span></div>
+              </div>
+              <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                <div className="text-xs text-slate-400 uppercase font-semibold">Current Squad</div>
+                <div className="text-2xl font-black text-emerald-400 mt-1">{data.squadEvolution.summary.currentSquadPlayers} <span className="text-xs text-slate-400 font-normal">Players</span></div>
+              </div>
+              <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                <div className="text-xs text-slate-400 uppercase font-semibold">Transferred Out</div>
+                <div className="text-2xl font-black text-rose-400 mt-1">{data.squadEvolution.summary.transferredOutPlayers} <span className="text-xs text-slate-400 font-normal">Players</span></div>
+              </div>
+              <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                <div className="text-xs text-slate-400 uppercase font-semibold">Most Loyal Player</div>
+                <div className="text-lg font-black text-amber-400 mt-1 truncate" title={data.squadEvolution.summary.mostLoyalPlayer?.name || '—'}>
+                  {data.squadEvolution.summary.mostLoyalPlayer?.name || '—'}
+                </div>
+                <div className="text-[11px] text-slate-400 mt-0.5">
+                  {data.squadEvolution.summary.mostLoyalPlayer ? `${data.squadEvolution.summary.mostLoyalPlayer.longestStreak} GW longest streak` : '—'}
+                </div>
+              </div>
+            </div>
+
+            {/* Current Squad Grid */}
+            <div className="mb-8">
+              <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider mb-4 flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span> Current Squad ({data.squadEvolution.players.filter((p: any) => p.status === 'CURRENT').length})
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                {data.squadEvolution.players.filter((p: any) => p.status === 'CURRENT').map((p: any) => (
+                  <div key={p.id} className="bg-slate-950/80 border border-slate-800 rounded-xl p-3 flex flex-col justify-between hover:border-slate-700 transition-colors">
+                    <div>
+                      <div className="flex justify-between items-start mb-1">
+                        <span className="font-bold text-white text-sm truncate" title={p.name}>{p.name}</span>
+                        <span className="text-[10px] bg-emerald-500/20 text-emerald-400 font-bold px-1.5 py-0.5 rounded">{p.position}</span>
+                      </div>
+                      <div className="text-xs text-slate-400 mb-2">{p.team}</div>
+                    </div>
+                    <div className="text-[11px] text-slate-300 space-y-1 pt-2 border-t border-slate-900">
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">First:</span>
+                        <b className="text-white">GW{p.firstEvent}</b>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">In Squad:</span>
+                        <b className="text-emerald-400">{p.gameweeksInSquad} GW</b>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Longest:</span>
+                        <b className="text-amber-400">{p.longestStreak} GW</b>
+                      </div>
+                      <div className="pt-1 text-[10px] text-cyan-400 font-mono text-center bg-slate-900 py-0.5 rounded">
+                        {p.periods.map((per: any) => per.start === per.end ? `GW${per.start}` : `GW${per.start}–GW${per.end}`).join(' • ')}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Former Players (Transferred Out) */}
+            {data.squadEvolution.players.filter((p: any) => p.status === 'TRANSFERRED_OUT').length > 0 && (
+              <div>
+                <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider mb-4 flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block"></span> Former Players ({data.squadEvolution.players.filter((p: any) => p.status === 'TRANSFERRED_OUT').length})
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                  {data.squadEvolution.players.filter((p: any) => p.status === 'TRANSFERRED_OUT').map((p: any) => (
+                    <div key={p.id} className="bg-slate-950/50 border border-slate-800/80 rounded-xl p-3 flex flex-col justify-between opacity-85 hover:opacity-100 transition-opacity">
+                      <div>
+                        <div className="flex justify-between items-start mb-1">
+                          <span className="font-bold text-slate-200 text-sm truncate" title={p.name}>{p.name}</span>
+                          <span className="text-[10px] bg-rose-500/20 text-rose-400 font-bold px-1.5 py-0.5 rounded">{p.position}</span>
+                        </div>
+                        <div className="text-xs text-slate-500 mb-2">{p.team}</div>
+                      </div>
+                      <div className="text-[11px] text-slate-400 space-y-1 pt-2 border-t border-slate-900/80">
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">First / Last:</span>
+                          <b className="text-slate-300">GW{p.firstEvent} – GW{p.lastEvent}</b>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Total GW:</span>
+                          <b className="text-slate-300">{p.gameweeksInSquad} GW</b>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Longest:</span>
+                          <b className="text-amber-400/80">{p.longestStreak} GW</b>
+                        </div>
+                        <div className="pt-1 text-[10px] text-slate-400 font-mono text-center bg-slate-900/60 py-0.5 rounded truncate" title={p.periods.map((per: any) => per.start === per.end ? `GW${per.start}` : `GW${per.start}–GW${per.end}`).join(' • ')}>
+                          {p.periods.map((per: any) => per.start === per.end ? `GW${per.start}` : `GW${per.start}–GW${per.end}`).join(' • ')}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="text-slate-400 italic">Belum ada data evolusi skuad yang tersedia.</div>
+        )}
+      </section>
+
       {/* LAPANGAN VISUAL FORMASI GAMEWEEK BERJALAN */}
       {picksList.length > 0 && (
         <section className="card p-6 my-6">
@@ -652,53 +772,458 @@ export default function ManagerDetail({ params }: { params: Promise<{ id: string
         </section>
       )}
       {selectedPlayer && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={closePlayerPopup}>
-          <div className="bg-slate-900 rounded-xl border border-slate-700 max-w-sm w-full shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
-            <div className="p-6 border-b border-slate-800">
-              <h3 className="text-2xl font-black text-white">{selectedPlayer.name}</h3>
-            </div>
-            
-            <div className="p-6">
-              <h4 className="text-lg font-bold text-white mb-4">Points breakdown</h4>
-              
-              <div className="grid grid-cols-3 gap-2 text-sm text-slate-400 mb-2 font-semibold uppercase tracking-wider">
-                <div>Statistic</div>
-                <div className="text-center">Value</div>
-                <div className="text-right">Points</div>
-              </div>
-
-              <div className="space-y-3 text-sm text-slate-300">
-                {/* Rows based on the reference format */}
-                <StatRow label="Minutes played" value={selectedPlayer.minutes} points={selectedPlayer.minutes >= 60 ? 2 : selectedPlayer.minutes > 0 ? 1 : 0} />
-                <StatRow label="Goals scored" value={selectedPlayer.goals_scored} points={selectedPlayer.goals_scored * 4} /> {/* Assuming 4 pts for goal */}
-                <StatRow label="Assists" value={selectedPlayer.assists} points={selectedPlayer.assists * 3} /> {/* Assuming 3 pts for assist */}
-                <StatRow label="Bonus" value={selectedPlayer.bonus} points={selectedPlayer.bonus} />
-              </div>
-
-              <div className="mt-6 pt-4 border-t border-slate-700 flex justify-between items-center text-white">
-                <span className="font-bold text-lg">Total Points:</span>
-                <span className="font-black text-2xl">{selectedPlayer.points}</span>
-              </div>
-            </div>
-            
-            <div className="p-4 bg-slate-800">
-              <button onClick={closePlayerPopup} className="w-full bg-slate-700 py-2 rounded-lg text-sm font-semibold text-white hover:bg-slate-600">Tutup</button>
-            </div>
-          </div>
-        </div>
+        <PlayerPopup 
+          player={selectedPlayer} 
+          onClose={closePlayerPopup} 
+        />
       )}
     </main>
   );
 }
 
-function StatRow({ label, value, points }: { label: string; value: number; points: number }) {
+function PlayerPopup({ player, onClose }: { player: any, onClose: () => void }) {
+  const { rows, officialRaw, calculatedRaw } = getPlayerBreakdownRows(player);
+  const multiplier = player.multiplier || 1;
+  const isCaptain = player.isCaptain;
+  const isVice = player.isVice;
+  const finalPoints = officialRaw * multiplier;
+  const posLabel = player.positionName || (player.elementType === 1 ? 'GKP' : player.elementType === 2 ? 'DEF' : player.elementType === 3 ? 'MID' : 'FWD');
+
   return (
-    <div className="grid grid-cols-3 gap-2 items-center">
-      <div className="text-slate-200">{label}</div>
-      <div className="text-center font-bold text-white">{value}</div>
-      <div className="text-right font-bold text-emerald-400">{points} pts</div>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-all" onClick={onClose}>
+      <div className="bg-slate-900 rounded-2xl border border-slate-700/80 max-w-sm w-full shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div className="p-5 border-b border-slate-800 bg-slate-950/60">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                <span className="text-xs font-black px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  {posLabel}
+                </span>
+                <span className="text-sm font-semibold text-slate-400">
+                  {player.teamShortName || player.teamName || ''}
+                </span>
+                {isCaptain && (
+                  <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-400 text-black">
+                    {multiplier === 3 ? 'TRIPLE CAPTAIN (3x)' : 'CAPTAIN (2x)'}
+                  </span>
+                )}
+                {isVice && !isCaptain && (
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                    VICE CAPTAIN
+                  </span>
+                )}
+              </div>
+              <h3 className="text-xl font-black text-white tracking-tight">{player.name}</h3>
+            </div>
+            {player.jerseyUrl && (
+              <img 
+                src={player.jerseyUrl} 
+                alt="Jersey" 
+                className="w-12 h-12 object-contain drop-shadow-md"
+              />
+            )}
+          </div>
+        </div>
+        
+        {/* Body */}
+        <div className="p-5 max-h-[60vh] overflow-y-auto">
+          <div className="flex items-center justify-between mb-4">
+            <h4 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Points Breakdown</h4>
+          </div>
+          
+          <div className="grid grid-cols-12 gap-2 text-xs text-slate-400 mb-3 font-bold uppercase tracking-wider border-b border-slate-800 pb-2">
+            <div className="col-span-6">Statistic</div>
+            <div className="col-span-3 text-center">Value</div>
+            <div className="col-span-3 text-right">Points</div>
+          </div>
+
+          <div className="space-y-3 text-sm text-slate-300">
+            {rows.map((row) => (
+              <div key={row.key} className="grid grid-cols-12 gap-2 items-center py-0.5">
+                <div className="col-span-6 text-slate-200 text-sm font-medium">{row.label}</div>
+                <div className="col-span-3 text-center font-bold text-white text-sm">{row.value}</div>
+                <div className={`col-span-3 text-right font-bold text-sm ${row.points < 0 ? 'text-rose-400' : row.points > 0 ? 'text-emerald-400' : 'text-slate-400'}`}>
+                  {row.points > 0 ? `+${row.points} pts` : row.points < 0 ? `${row.points} pts` : '0 pts'}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Points Summary */}
+          <div className="mt-6 pt-4 border-t border-slate-800 space-y-2 bg-slate-950/40 p-4 rounded-xl border border-slate-800/80">
+            {multiplier > 1 ? (
+              <>
+                <div className="flex justify-between items-center text-sm text-slate-400">
+                  <span>Official Raw Points:</span>
+                  <span className="font-semibold text-slate-200">{officialRaw} pts</span>
+                </div>
+                <div className="flex justify-between items-center text-sm text-slate-400">
+                  <span>Captain Multiplier:</span>
+                  <span className="font-bold text-amber-400">x{multiplier}</span>
+                </div>
+                <div className="flex justify-between items-center text-white pt-2 border-t border-slate-800">
+                  <span className="font-bold text-sm uppercase tracking-wide">Final Points:</span>
+                  <span className="font-black text-2xl text-emerald-400">{finalPoints} <span className="text-sm font-normal text-slate-300">pts</span></span>
+                </div>
+              </>
+            ) : (
+              <div className="flex justify-between items-center text-white">
+                <span className="font-bold text-sm uppercase tracking-wide">Official FPL Points:</span>
+                <span className="font-black text-2xl text-emerald-400">{finalPoints} <span className="text-sm font-normal text-slate-300">pts</span></span>
+              </div>
+            )}
+          </div>
+        </div>
+        
+        <div className="p-4 bg-slate-950/80 border-t border-slate-800">
+          <button onClick={onClose} className="w-full bg-slate-800 hover:bg-slate-700 py-3 rounded-xl text-sm font-bold text-white transition-colors">Tutup</button>
+        </div>
+      </div>
     </div>
   );
+}
+
+interface PointBreakdownRow {
+  key: string;
+  label: string;
+  value: number;
+  points: number;
+}
+
+function getPlayerBreakdownRows(player: any): { rows: PointBreakdownRow[]; officialRaw: number; calculatedRaw: number } {
+  const b = player.breakdown || {};
+  const minutes = b.minutes ?? player.minutes ?? 0;
+  const goalsScored = b.goalsScored ?? player.goals_scored ?? 0;
+  const assists = b.assists ?? player.assists ?? 0;
+  const cleanSheets = b.cleanSheets ?? player.clean_sheets ?? 0;
+  const goalsConceded = b.goalsConceded ?? player.goals_conceded ?? 0;
+  const ownGoals = b.ownGoals ?? player.own_goals ?? 0;
+  const penaltiesSaved = b.penaltiesSaved ?? player.penalties_saved ?? 0;
+  const penaltiesMissed = b.penaltiesMissed ?? player.penalties_missed ?? 0;
+  const yellowCards = b.yellowCards ?? player.yellow_cards ?? 0;
+  const redCards = b.redCards ?? player.red_cards ?? 0;
+  const saves = b.saves ?? player.saves ?? 0;
+  const bonus = b.bonus ?? player.bonus ?? 0;
+  const dcValue = b.defensiveContributionValue ?? b.defensiveContribution ?? player.defensive_contribution ?? 0;
+  const dcPoints = b.defensiveContributionPoints ?? player.defensive_contribution_points ?? 0;
+  
+  const elementType = player.elementType || 1; // 1: GKP, 2: DEF, 3: MID, 4: FWD
+  const isGkpOrDef = elementType === 1 || elementType === 2;
+  const isMid = elementType === 3;
+
+  const officialRaw = player.rawPoints ?? b.totalPoints ?? player.total_points ?? 0;
+
+  // If explain exists from FPL live API, map fixtures to exact official breakdown
+  const explain = player.explain || [];
+  if (Array.isArray(explain) && explain.length > 0) {
+    const explainStatMap = new Map<string, { value: number; points: number }>();
+    explain.forEach((fixture: any) => {
+      (fixture.stats || []).forEach((s: any) => {
+        const id = s.identifier;
+        const current = explainStatMap.get(id) || { value: 0, points: 0 };
+        explainStatMap.set(id, {
+          value: current.value + (s.value ?? 0),
+          points: current.points + (s.points ?? 0),
+        });
+      });
+    });
+
+    const rows: PointBreakdownRow[] = [];
+
+    // 1. Minutes (always show)
+    const minStat = explainStatMap.get('minutes') || {
+      value: minutes,
+      points: minutes >= 60 ? 2 : minutes > 0 ? 1 : 0,
+    };
+    rows.push({
+      key: 'minutes',
+      label: 'Minutes played',
+      value: minStat.value,
+      points: minStat.points,
+    });
+
+    // 2. Goals scored
+    const goalStat = explainStatMap.get('goals_scored');
+    if (goalStat && (goalStat.value > 0 || goalStat.points !== 0)) {
+      rows.push({
+        key: 'goals_scored',
+        label: 'Goals scored',
+        value: goalStat.value,
+        points: goalStat.points,
+      });
+    }
+
+    // 3. Assists
+    const assistStat = explainStatMap.get('assists');
+    if (assistStat && (assistStat.value > 0 || assistStat.points !== 0)) {
+      rows.push({
+        key: 'assists',
+        label: 'Assists',
+        value: assistStat.value,
+        points: assistStat.points,
+      });
+    }
+
+    // 4. Clean Sheet
+    const csStat = explainStatMap.get('clean_sheets');
+    if (csStat && (csStat.value > 0 || csStat.points !== 0)) {
+      rows.push({
+        key: 'clean_sheets',
+        label: 'Clean Sheet',
+        value: csStat.value,
+        points: csStat.points,
+      });
+    }
+
+    // 5. Defensive Contribution
+    const dcStat = explainStatMap.get('defensive_contribution');
+    if (dcStat && (dcStat.value > 0 || dcStat.points !== 0)) {
+      rows.push({
+        key: 'defensive_contribution',
+        label: 'Defensive Contribution',
+        value: dcStat.value,
+        points: dcStat.points,
+      });
+    } else if (dcValue > 0 && dcPoints > 0) {
+      rows.push({
+        key: 'defensive_contribution',
+        label: 'Defensive Contribution',
+        value: dcValue,
+        points: dcPoints,
+      });
+    }
+
+    // 6. Goals Conceded
+    const gcStat = explainStatMap.get('goals_conceded');
+    if (gcStat && (gcStat.value > 0 || gcStat.points !== 0)) {
+      rows.push({
+        key: 'goals_conceded',
+        label: 'Goals Conceded',
+        value: gcStat.value,
+        points: gcStat.points,
+      });
+    }
+
+    // 7. Saves
+    const saveStat = explainStatMap.get('saves');
+    if (saveStat && (saveStat.value > 0 || saveStat.points !== 0)) {
+      rows.push({
+        key: 'saves',
+        label: 'Saves',
+        value: saveStat.value,
+        points: saveStat.points,
+      });
+    }
+
+    // 8. Penalties Saved
+    const psStat = explainStatMap.get('penalties_saved');
+    if (psStat && (psStat.value > 0 || psStat.points !== 0)) {
+      rows.push({
+        key: 'penalties_saved',
+        label: 'Penalties Saved',
+        value: psStat.value,
+        points: psStat.points,
+      });
+    }
+
+    // 9. Penalties Missed
+    const pmStat = explainStatMap.get('penalties_missed');
+    if (pmStat && (pmStat.value > 0 || pmStat.points !== 0)) {
+      rows.push({
+        key: 'penalties_missed',
+        label: 'Penalties Missed',
+        value: pmStat.value,
+        points: pmStat.points,
+      });
+    }
+
+    // 10. Own Goals
+    const ogStat = explainStatMap.get('own_goals');
+    if (ogStat && (ogStat.value > 0 || ogStat.points !== 0)) {
+      rows.push({
+        key: 'own_goals',
+        label: 'Own Goals',
+        value: ogStat.value,
+        points: ogStat.points,
+      });
+    }
+
+    // 11. Yellow Cards
+    const ycStat = explainStatMap.get('yellow_cards');
+    if (ycStat && (ycStat.value > 0 || ycStat.points !== 0)) {
+      rows.push({
+        key: 'yellow_cards',
+        label: 'Yellow Card',
+        value: ycStat.value,
+        points: ycStat.points,
+      });
+    }
+
+    // 12. Red Cards
+    const rcStat = explainStatMap.get('red_cards');
+    if (rcStat && (rcStat.value > 0 || rcStat.points !== 0)) {
+      rows.push({
+        key: 'red_cards',
+        label: 'Red Card',
+        value: rcStat.value,
+        points: rcStat.points,
+      });
+    }
+
+    // 13. Bonus
+    const bonusStat = explainStatMap.get('bonus');
+    if (bonusStat && (bonusStat.value > 0 || bonusStat.points !== 0)) {
+      rows.push({
+        key: 'bonus',
+        label: 'Bonus',
+        value: bonusStat.value,
+        points: bonusStat.points,
+      });
+    }
+
+    const calculatedRaw = rows.reduce((sum, r) => sum + r.points, 0);
+    return { rows, officialRaw, calculatedRaw };
+  }
+
+  // Fallback direct rule calculation
+  const rows: PointBreakdownRow[] = [];
+
+  // Minutes (always)
+  const minPts = minutes >= 60 ? 2 : minutes > 0 ? 1 : 0;
+  rows.push({
+    key: 'minutes',
+    label: 'Minutes played',
+    value: minutes,
+    points: minPts,
+  });
+
+  // Goals
+  if (goalsScored > 0) {
+    const goalPts = goalsScored * (isGkpOrDef ? 6 : isMid ? 5 : 4);
+    rows.push({
+      key: 'goals_scored',
+      label: 'Goals scored',
+      value: goalsScored,
+      points: goalPts,
+    });
+  }
+
+  // Assists
+  if (assists > 0) {
+    rows.push({
+      key: 'assists',
+      label: 'Assists',
+      value: assists,
+      points: assists * 3,
+    });
+  }
+
+  // Clean Sheet
+  if (cleanSheets > 0 && minutes >= 60 && (isGkpOrDef || isMid)) {
+    const csPts = isGkpOrDef ? cleanSheets * 4 : cleanSheets * 1;
+    rows.push({
+      key: 'clean_sheets',
+      label: 'Clean Sheet',
+      value: cleanSheets,
+      points: csPts,
+    });
+  }
+
+  // Defensive Contribution
+  if (dcValue > 0 && dcPoints > 0) {
+    rows.push({
+      key: 'defensive_contribution',
+      label: 'Defensive Contribution',
+      value: dcValue,
+      points: dcPoints,
+    });
+  }
+
+  // Goals Conceded
+  if (isGkpOrDef && goalsConceded >= 2 && minutes > 0) {
+    const gcPts = -Math.floor(goalsConceded / 2);
+    rows.push({
+      key: 'goals_conceded',
+      label: 'Goals Conceded',
+      value: goalsConceded,
+      points: gcPts,
+    });
+  }
+
+  // Saves
+  if (elementType === 1 && saves >= 3) {
+    const savePts = Math.floor(saves / 3);
+    rows.push({
+      key: 'saves',
+      label: 'Saves',
+      value: saves,
+      points: savePts,
+    });
+  }
+
+  // Penalties Saved
+  if (penaltiesSaved > 0) {
+    rows.push({
+      key: 'penalties_saved',
+      label: 'Penalties Saved',
+      value: penaltiesSaved,
+      points: penaltiesSaved * 5,
+    });
+  }
+
+  // Penalties Missed
+  if (penaltiesMissed > 0) {
+    rows.push({
+      key: 'penalties_missed',
+      label: 'Penalties Missed',
+      value: penaltiesMissed,
+      points: penaltiesMissed * -2,
+    });
+  }
+
+  // Own Goals
+  if (ownGoals > 0) {
+    rows.push({
+      key: 'own_goals',
+      label: 'Own Goals',
+      value: ownGoals,
+      points: ownGoals * -2,
+    });
+  }
+
+  // Yellow Cards
+  if (yellowCards > 0) {
+    rows.push({
+      key: 'yellow_cards',
+      label: 'Yellow Card',
+      value: yellowCards,
+      points: yellowCards * -1,
+    });
+  }
+
+  // Red Cards
+  if (redCards > 0) {
+    rows.push({
+      key: 'red_cards',
+      label: 'Red Card',
+      value: redCards,
+      points: redCards * -3,
+    });
+  }
+
+  // Bonus
+  if (bonus > 0) {
+    rows.push({
+      key: 'bonus',
+      label: 'Bonus',
+      value: bonus,
+      points: bonus,
+    });
+  }
+
+  const calculatedRaw = rows.reduce((sum, r) => sum + r.points, 0);
+  return { rows, officialRaw, calculatedRaw };
 }
 
 function PlayerCard({ player, isBench, onClick }: { player: any; isBench?: boolean; onClick?: () => void }) {
