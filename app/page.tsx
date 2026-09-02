@@ -64,7 +64,7 @@ export default function Home(){
  return <main>
   <section className="hero"><div className="hero-orb orb-one"/><div className="hero-orb orb-two"/><div className="container hero-inner">
    <div className="hero-top"><div className="brand-pill"><Trophy size={15}/> FANTASY PREMIER LEAGUE</div><div className="id-pill">LEAGUE ID <b>134820</b></div></div>
-   <div className="hero-copy"><div className="eyebrow">2026 / 27 • CLASSIC LEAGUE • V5.5.2</div><h1>ERA <span>SUPER</span> LEAGUE</h1><p>Command center untuk memantau klasemen, momentum ranking, performa Gameweek, dan manager terbaik dalam satu dashboard.</p></div>
+   <div className="hero-copy"><div className="eyebrow">2026 / 27 • CLASSIC LEAGUE • V6.0</div><h1>ERA <span>SUPER</span> LEAGUE</h1><p>Command center untuk memantau klasemen, momentum ranking, performa Gameweek, dan manager terbaik dalam satu dashboard.</p></div>
    <div className="hero-meta"><span><i/> Live FPL Data</span><span>Gameweek {data?.current??'—'}</span><span>FPL API • retry 3x</span></div>
   </div></section>
   <div className="container page-shell">

@@ -41,7 +41,7 @@ export default async function Compare({searchParams}:{searchParams:Promise<{a?:s
         <div className="container hero-inner">
           <Link href="/" className="back-link"><ArrowLeft size={16}/> Kembali</Link>
           <div className="profile-title">
-            <div className="eyebrow">ERA SUPER LEAGUE • V5.8</div>
+            <div className="eyebrow">ERA SUPER LEAGUE • V6.0</div>
             <h1>Compare Manager</h1>
             <p>Bandingkan performa dua manager dari Gameweek ke Gameweek.</p>
           </div>

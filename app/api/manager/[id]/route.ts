@@ -4,6 +4,22 @@ import { getBootstrap, getEntry, getEntryHistory, getEntryPicks, getLiveEvent } 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  mapper: (item: T) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = [];
+  for (let i = 0; i < items.length; i += limit) {
+    const batch = items.slice(i, i + limit);
+    const batchResults = await Promise.all(
+      batch.map(mapper)
+    );
+    results.push(...batchResults);
+  }
+  return results;
+}
+
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -206,6 +222,36 @@ export async function GET(
       })
     );
 
+    // Collect unique events for live data
+    const uniqueEvents: number[] = [...new Set(
+      sortedGwHistory
+        .map((h: any) => h.event)
+        .filter(Boolean)
+    )];
+
+    // Shared live data map with currentGW reuse
+    const liveDataMap = new Map<number, any>();
+    if (liveData && currentGW) {
+      liveDataMap.set(currentGW, liveData);
+    }
+
+    const eventsToFetch = uniqueEvents.filter((ev: number) => !liveDataMap.has(ev));
+    if (eventsToFetch.length > 0) {
+      const liveResults = await mapWithConcurrency(
+        eventsToFetch,
+        5,
+        async (event: number) => {
+          const live = await getLiveEvent(event).catch(() => null);
+          return [event, live] as const;
+        }
+      );
+      for (const [event, live] of liveResults) {
+        if (live) {
+          liveDataMap.set(event, live);
+        }
+      }
+    }
+
     // --- V5.9 SQUAD EVOLUTION & PLAYER HISTORY CALCULATION ---
     const playerHistoryMap = new Map<number, {
       id: number;
@@ -403,8 +449,8 @@ export async function GET(
         const captainPlayer = elementsMap.get(captainPick.element);
         const vicePlayer = vicePick ? elementsMap.get(vicePick.element) : null;
         
-        const liveData = await getLiveEvent(h.event).catch(() => null);
-        const liveMapForGW = new Map<number, any>((liveData?.elements || []).map((el: any) => [el.id, el.stats]));
+        const liveDataForGW = liveDataMap.get(h.event);
+        const liveMapForGW = new Map<number, any>((liveDataForGW?.elements || []).map((el: any) => [el.id, el.stats]));
         const captainStats = liveMapForGW.get(captainPick.element);
         
         const capMult = captainPick.multiplier || 1;
