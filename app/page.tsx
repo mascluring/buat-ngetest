@@ -213,8 +213,8 @@ export default function Home(){
     </table></div>
     <div className="pager"><span>Halaman <b>{page}</b>{data?.hasNext?' • lanjut untuk melihat 50 berikutnya':''}</span><div><button disabled={page===1||loading} onClick={()=>setPage(p=>Math.max(1,p-1))}>← Prev</button><button disabled={!data?.hasNext||loading} onClick={()=>setPage(p=>p+1)}>Next →</button><button className="refresh" onClick={()=>load(page)} disabled={loading}><RefreshCw size={14} className={loading?'spin':''}/> Refresh</button></div></div>
    </section>
-   <div className="v3-note"><Sparkles size={16}/><div><b>V5.5.2 Interactive Pitch View</b><span>Formasi dapat diklik langsung untuk membuka visual pitch view lapangan dan perhitungan poin real-time.</span></div></div>
-   <footer>ERA SUPER LEAGUE • FPL Dashboard • League ID 134820 • Data from Fantasy Premier League</footer>
+   <div className="v3-note"><Sparkles size={16}/><div><b>V6.0 Interactive Pitch View</b><span>Formasi dapat diklik langsung untuk membuka visual pitch view lapangan dan perhitungan poin real-time.</span></div></div>
+   <footer>ERA SUPER LEAGUE • V6.0 Dashboard • League ID 134820 • Data from Fantasy Premier League</footer>
   </div>
  </main>
 }

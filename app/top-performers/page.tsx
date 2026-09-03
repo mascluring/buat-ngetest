@@ -219,6 +219,8 @@ export default function TopPerformersPage() {
           </section>
         </>
       )}
+
+      <footer className="mt-12 text-center text-xs text-slate-500 pb-6">ERA SUPER LEAGUE • V6.0 Top Performers • League ID 134820</footer>
     </main>
   );
 }

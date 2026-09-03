@@ -249,6 +249,8 @@ export default function PlayersPage() {
           <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages} className="px-3 py-1 bg-slate-800 rounded text-sm disabled:opacity-50">Next</button>
         </div>
       )}
+
+      <footer className="mt-12 text-center text-xs text-slate-500 pb-6">ERA SUPER LEAGUE • V6.0 Players • League ID 134820</footer>
     </main>
   );
 }
