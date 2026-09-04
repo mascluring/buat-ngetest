@@ -41,9 +41,23 @@ export default async function Compare({searchParams}:{searchParams:Promise<{a?:s
         <div className="container hero-inner">
           <Link href="/" className="back-link"><ArrowLeft size={16}/> Kembali</Link>
           <div className="profile-title">
-            <div className="eyebrow">ERA SUPER LEAGUE • V6.0</div>
-            <h1>Compare Manager</h1>
-            <p>Bandingkan performa dua manager dari Gameweek ke Gameweek.</p>
+            <div className="eyebrow">ERA SUPER LEAGUE • V6.2</div>
+            <h1>Compare Center</h1>
+            <p>Bandingkan performa dua manager dari Gameweek ke Gameweek atau analisis statistik pemain FPL.</p>
+          </div>
+
+          <div className="flex items-center gap-2 mt-6 p-1 bg-slate-900/90 rounded-xl border border-slate-800 w-fit">
+            <button 
+              className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-bold bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 transition-all"
+            >
+              Compare Manager
+            </button>
+            <Link 
+              href="/compare/player" 
+              className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-800/60 transition-all"
+            >
+              Compare Player
+            </Link>
           </div>
         </div>
       </header>
