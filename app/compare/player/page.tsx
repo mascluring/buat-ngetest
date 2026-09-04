@@ -353,7 +353,7 @@ function PlayerCompareContent() {
 
           <div className="profile-title">
             <div className="eyebrow text-xs font-mono tracking-widest text-cyan-400 uppercase font-bold mb-1">
-              ERA SUPER LEAGUE • V6.2
+              ERA SUPER LEAGUE • V6.3
             </div>
             <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
               Compare Center

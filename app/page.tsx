@@ -38,14 +38,25 @@ export default function Home(){
 
  const load=async(p=page)=>{setLoading(true);setError('');try{
     const [r1, r2] = await Promise.all([
-      fetch(`/api/league-picks?page=${p}`,{cache:'no-store'}),
-      fetch('/api/analytics',{cache:'no-store'})
+      fetch(`/api/league-picks?page=${p}`,{cache:'no-store'}).catch(()=>null),
+      fetch('/api/analytics',{cache:'no-store'}).catch(()=>null)
     ]);
-    const json1 = await r1.json().catch(()=>null);
-    const json2 = await r2.json().catch(()=>null);
-    if(!r1.ok||!json1?.ok)throw new Error(json1?.error||`API error ${r1.status}`);
-    setData(json1);
-    setAnalytics(json2);
+    const json1 = r1?.ok ? await r1.json().catch(()=>null) : null;
+    const json2 = r2?.ok ? await r2.json().catch(()=>null) : null;
+
+    let leagueData = json1;
+    if (!json1?.ok) {
+      // Graceful fallback to basic league standings if picks API is temporarily unavailable
+      const fb = await fetch(`/api/league?page=${p}`, { cache: 'no-store' }).catch(() => null);
+      const fbJson = fb?.ok ? await fb.json().catch(() => null) : null;
+      if (fbJson?.ok) {
+        leagueData = fbJson;
+      } else {
+        throw new Error(json1?.error || fbJson?.error || `Data FPL tidak dapat dimuat (${r1?.status || 500})`);
+      }
+    }
+    setData(leagueData);
+    if (json2?.ok) setAnalytics(json2);
   }catch(e:any){setError(e?.message||'Data FPL tidak dapat dimuat');setData(null)}finally{setLoading(false)}};
  useEffect(()=>{load(page)},[page]);
  const movementReady=(data?.current??1)>=2;
@@ -64,7 +75,7 @@ export default function Home(){
  return <main>
   <section className="hero"><div className="hero-orb orb-one"/><div className="hero-orb orb-two"/><div className="container hero-inner">
    <div className="hero-top"><div className="brand-pill"><Trophy size={15}/> FANTASY PREMIER LEAGUE</div><div className="id-pill">LEAGUE ID <b>134820</b></div></div>
-   <div className="hero-copy"><div className="eyebrow">2026 / 27 • CLASSIC LEAGUE • V6.2</div><h1>ERA <span>SUPER</span> LEAGUE</h1><p>Command center untuk memantau klasemen, momentum ranking, performa Gameweek, dan manager terbaik dalam satu dashboard.</p></div>
+   <div className="hero-copy"><div className="eyebrow">2026 / 27 • CLASSIC LEAGUE • V6.3</div><h1>ERA <span>SUPER</span> LEAGUE</h1><p>Command center untuk memantau klasemen, momentum ranking, performa Gameweek, dan manager terbaik dalam satu dashboard.</p></div>
    <div className="hero-meta"><span><i/> Live FPL Data</span><span>Gameweek {data?.current??'—'}</span><span>FPL API • retry 3x</span></div>
   </div></section>
   <div className="container page-shell">
@@ -216,9 +227,10 @@ export default function Home(){
     </table></div>
     <div className="pager"><span>Halaman <b>{page}</b>{data?.hasNext?' • lanjut untuk melihat 50 berikutnya':''}</span><div><button disabled={page===1||loading} onClick={()=>setPage(p=>Math.max(1,p-1))}>← Prev</button><button disabled={!data?.hasNext||loading} onClick={()=>setPage(p=>p+1)}>Next →</button><button className="refresh" onClick={()=>load(page)} disabled={loading}><RefreshCw size={14} className={loading?'spin':''}/> Refresh</button></div></div>
    </section>
-   <div className="v3-note"><Sparkles size={16}/><div><b>V6.0 Interactive Pitch View</b><span>Formasi dapat diklik langsung untuk membuka visual pitch view lapangan dan perhitungan poin real-time.</span></div></div>
-   <footer>ERA SUPER LEAGUE • V6.0 Dashboard • League ID 134820 • Data from Fantasy Premier League</footer>
+   <div className="v3-note"><Sparkles size={16}/><div><b>V6.3 Interactive Pitch View &amp; Performance Insights</b><span>Formasi dapat diklik langsung untuk membuka visual pitch view lapangan dan perhitungan poin real-time.</span></div></div>
+   <footer>ERA SUPER LEAGUE • V6.3 Dashboard • League ID 134820 • Data from Fantasy Premier League</footer>
   </div>
+  {selectedPlayer && <PlayerPopup player={selectedPlayer} onClose={closePlayerPopup} />}
  </main>
 }
 

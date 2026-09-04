@@ -189,7 +189,7 @@ export default function PlayersPage() {
           </Link>
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white flex items-center gap-3">
             <span>FPL Player Statistics</span>
-            <span className="text-xs font-semibold px-2.5 py-1 bg-cyan-950/80 text-cyan-400 border border-cyan-800/60 rounded-full">V6.2 Season Stats</span>
+            <span className="text-xs font-semibold px-2.5 py-1 bg-cyan-950/80 text-cyan-400 border border-cyan-800/60 rounded-full">V6.3 Season Stats</span>
           </h1>
           <p className="text-xs sm:text-sm text-slate-400 mt-1">
             Database statistik komprehensif seluruh pemain Fantasy Premier League langsung dari sumber resmi FPL.
@@ -619,7 +619,7 @@ export default function PlayersPage() {
             <div className="bg-slate-950/90 p-4 rounded-xl border border-slate-800 mb-6">
               <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-3 flex items-center gap-2">
                 <Award size={14} className="text-cyan-400"/>
-                <span>Statistik Musim Lengkap (V6.2)</span>
+                <span>Statistik Musim Lengkap (V6.3)</span>
               </h3>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-y-3 gap-x-6 text-xs divide-y sm:divide-y-0 divide-slate-900">
                 <div className="flex justify-between py-1 border-b border-slate-900"><span className="text-slate-400">Goals:</span> <b className="text-white font-mono">{selectedPlayer.goals ?? selectedPlayer.goals_scored ?? 0}</b></div>
@@ -681,7 +681,7 @@ export default function PlayersPage() {
 
       {/* FOOTER */}
       <footer className="mt-12 text-center text-xs text-slate-500 pb-6">
-        ERA SUPER LEAGUE • V6.2 Player Statistics • League ID 134820
+        ERA SUPER LEAGUE • V6.3 Player Statistics • League ID 134820
       </footer>
     </main>
   );

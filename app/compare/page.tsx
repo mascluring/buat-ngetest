@@ -41,7 +41,7 @@ export default async function Compare({searchParams}:{searchParams:Promise<{a?:s
         <div className="container hero-inner">
           <Link href="/" className="back-link"><ArrowLeft size={16}/> Kembali</Link>
           <div className="profile-title">
-            <div className="eyebrow">ERA SUPER LEAGUE • V6.2</div>
+            <div className="eyebrow">ERA SUPER LEAGUE • V6.3</div>
             <h1>Compare Center</h1>
             <p>Bandingkan performa dua manager dari Gameweek ke Gameweek atau analisis statistik pemain FPL.</p>
           </div>
@@ -162,7 +162,7 @@ export default async function Compare({searchParams}:{searchParams:Promise<{a?:s
           </>
         )}
 
-        <footer className="mt-12 text-center text-xs text-slate-500 pb-6">ERA SUPER LEAGUE • V6.2 Compare • League ID 134820</footer>
+        <footer className="mt-12 text-center text-xs text-slate-500 pb-6">ERA SUPER LEAGUE • V6.3 Compare • League ID 134820</footer>
       </div>
     </main>
   );
