@@ -64,7 +64,7 @@ export default function Home(){
  return <main>
   <section className="hero"><div className="hero-orb orb-one"/><div className="hero-orb orb-two"/><div className="container hero-inner">
    <div className="hero-top"><div className="brand-pill"><Trophy size={15}/> FANTASY PREMIER LEAGUE</div><div className="id-pill">LEAGUE ID <b>134820</b></div></div>
-   <div className="hero-copy"><div className="eyebrow">2026 / 27 • CLASSIC LEAGUE • V6.0</div><h1>ERA <span>SUPER</span> LEAGUE</h1><p>Command center untuk memantau klasemen, momentum ranking, performa Gameweek, dan manager terbaik dalam satu dashboard.</p></div>
+   <div className="hero-copy"><div className="eyebrow">2026 / 27 • CLASSIC LEAGUE • V6.2</div><h1>ERA <span>SUPER</span> LEAGUE</h1><p>Command center untuk memantau klasemen, momentum ranking, performa Gameweek, dan manager terbaik dalam satu dashboard.</p></div>
    <div className="hero-meta"><span><i/> Live FPL Data</span><span>Gameweek {data?.current??'—'}</span><span>FPL API • retry 3x</span></div>
   </div></section>
   <div className="container page-shell">
@@ -105,12 +105,12 @@ export default function Home(){
     <Link href="/player" className="compare-button text-purple-300 border-purple-500/40 bg-purple-500/10">
       <Users size={14}/> Player
     </Link>
-    <Link href="/compare/player" className="compare-button text-indigo-300 border-indigo-500/40 bg-indigo-500/10">
-      <BarChart3 size={14}/> Compare Player
+    <Link href="/compare" className="compare-button text-indigo-300 border-indigo-500/40 bg-indigo-500/10">
+      <BarChart3 size={14}/> Compare
     </Link>
     <Link href="/fixtures" className="compare-button text-blue-300 border-blue-500/40 bg-blue-500/10">
       <Calendar size={14}/> Fixtures
-    </Link><Link href="/price-changes" className="compare-button text-emerald-300 border-emerald-500/40 bg-emerald-500/10"><TrendingUp size={14}/> Price Changes</Link><Link href="/top-performers" className="compare-button text-amber-300 border-amber-500/40 bg-amber-500/10"><Trophy size={14}/> GW Top Performers</Link><Link href="/live" className="compare-button text-rose-300 border-rose-500/40 bg-rose-500/10"><Zap size={14}/> Live Center</Link><Link href="/analytics" className="compare-button"><Sparkles size={14}/> League Analytics</Link><Link href="/compare" className="compare-button"><BarChart3 size={14}/> Compare Manager</Link></div><div className="sorts"><span>Urutkan:</span>{(['rank','gw','total','move'] as const).map(s=><button key={s} className={sort===s?'active':''} onClick={()=>setSort(s)}>{s==='rank'?'Rank':s==='gw'?'GW Points':s==='total'?'Total':'Movement'}</button>)}</div>
+    </Link><Link href="/price-changes" className="compare-button text-emerald-300 border-emerald-500/40 bg-emerald-500/10"><TrendingUp size={14}/> Price Changes</Link><Link href="/top-performers" className="compare-button text-amber-300 border-amber-500/40 bg-amber-500/10"><Trophy size={14}/> GW Top Performers</Link><Link href="/live" className="compare-button text-rose-300 border-rose-500/40 bg-rose-500/10"><Zap size={14}/> Live Center</Link><Link href="/analytics" className="compare-button"><Sparkles size={14}/> League Analytics</Link></div><div className="sorts"><span>Urutkan:</span>{(['rank','gw','total','move'] as const).map(s=><button key={s} className={sort===s?'active':''} onClick={()=>setSort(s)}>{s==='rank'?'Rank':s==='gw'?'GW Points':s==='total'?'Total':'Movement'}</button>)}</div>
     <div className="table-scroll"><table className="rank-table">
      <thead>
       <tr>

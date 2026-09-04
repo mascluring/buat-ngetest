@@ -318,7 +318,7 @@ export default function FixturesPage() {
         </div>
       )}
 
-      <footer className="mt-12 text-center text-xs text-slate-500 pb-6">ERA SUPER LEAGUE • V6.0 Fixtures • League ID 134820</footer>
+      <footer className="mt-12 text-center text-xs text-slate-500 pb-6">ERA SUPER LEAGUE • V6.2 Fixtures • League ID 134820</footer>
     </main>
   );
 }

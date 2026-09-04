@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowLeft, ArrowRightLeft, Crown, Trophy, TrendingUp } from 'lucide-react';
+import { ArrowLeft, ArrowRightLeft, Crown, Trophy, TrendingUp, Users, BarChart3 } from 'lucide-react';
 import { getEntry, getEntryHistory, getAllLeagueStandings } from '@/lib/fpl';
 import CompareChart from './CompareChart';
 
@@ -50,13 +50,13 @@ export default async function Compare({searchParams}:{searchParams:Promise<{a?:s
             <button 
               className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-bold bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 transition-all"
             >
-              Compare Manager
+              <Users size={15} /> Compare Manager
             </button>
             <Link 
               href="/compare/player" 
               className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-800/60 transition-all"
             >
-              Compare Player
+              <BarChart3 size={15} /> Compare Player
             </Link>
           </div>
         </div>
@@ -162,7 +162,7 @@ export default async function Compare({searchParams}:{searchParams:Promise<{a?:s
           </>
         )}
 
-        <footer className="mt-12 text-center text-xs text-slate-500 pb-6">ERA SUPER LEAGUE • V6.0 Compare • League ID 134820</footer>
+        <footer className="mt-12 text-center text-xs text-slate-500 pb-6">ERA SUPER LEAGUE • V6.2 Compare • League ID 134820</footer>
       </div>
     </main>
   );
