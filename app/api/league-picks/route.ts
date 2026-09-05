@@ -28,6 +28,7 @@ export async function GET(req: Request) {
 
     const elementsMap = new Map<number, any>((boot?.elements || []).map((el: any) => [el.id, el]));
     const teamsMap = new Map<number, any>((boot?.teams || []).map((t: any) => [t.id, t]));
+    const liveElementsMap = new Map<number, any>((liveData?.elements || []).map((el: any) => [el.id, el]));
     const liveMap = new Map<number, any>((liveData?.elements || []).map((el: any) => [el.id, el.stats]));
 
     // Fetch picks in batches to avoid triggering Cloudflare rate-limit / 403
@@ -97,7 +98,8 @@ export async function GET(req: Request) {
             const picksList = picks.map((p: any) => {
               const el = elementsMap.get(p.element) || {};
               const team = teamsMap.get(el.team) || {};
-              const stats = liveMap.get(p.element) || {};
+              const liveEl = liveElementsMap.get(p.element) || {};
+              const stats = liveEl.stats || liveMap.get(p.element) || {};
               const mult = p.multiplier || 1;
               const teamCode = team.code || 1;
               const isGkp = el.element_type === 1;
@@ -106,12 +108,27 @@ export async function GET(req: Request) {
                 ? `https://fantasy.premierleague.com/dist/img/shirts/standard/shirt_${teamCode}_1-66.png`
                 : `https://fantasy.premierleague.com/dist/img/shirts/standard/shirt_${teamCode}-66.png`;
 
+              // Calculate official defensive contribution points from explain if available
+              let dcPoints = 0;
+              (liveEl.explain || []).forEach((fixture: any) => {
+                (fixture.stats || []).forEach((s: any) => {
+                  if (s.identifier === 'defensive_contribution') {
+                    dcPoints += (s.points || 0);
+                  }
+                });
+              });
+
+              const posName = el.element_type === 1 ? 'GKP' : el.element_type === 2 ? 'DEF' : el.element_type === 3 ? 'MID' : 'FWD';
+
               return {
                 id: p.element,
                 name: el.web_name || 'Player',
+                fullName: `${el.first_name || ''} ${el.second_name || ''}`.trim() || el.web_name || 'Player',
                 elementType: el.element_type || 1,
+                positionName: posName,
                 teamCode: teamCode,
                 teamShortName: team.short_name || '',
+                teamName: team.name || '',
                 jerseyUrl: jerseyUrl,
                 position: p.position,
                 multiplier: mult,
@@ -119,15 +136,43 @@ export async function GET(req: Request) {
                 isVice: p.is_vice_captain,
                 points: (stats.total_points || 0) * mult,
                 rawPoints: stats.total_points || 0,
-                minutes: stats.minutes || 0,
-                goals_scored: stats.goals_scored || 0,
-                assists: stats.assists || 0,
-                saves: stats.saves || 0,
-                clean_sheets: stats.clean_sheets || 0,
-                bonus: stats.bonus || 0,
-                yellow_cards: stats.yellow_cards || 0,
-                red_cards: stats.red_cards || 0,
-                own_goals: stats.own_goals || 0,
+                minutes: stats.minutes ?? 0,
+                total_points: stats.total_points ?? 0,
+                goals_scored: stats.goals_scored ?? 0,
+                assists: stats.assists ?? 0,
+                clean_sheets: stats.clean_sheets ?? 0,
+                goals_conceded: stats.goals_conceded ?? 0,
+                own_goals: stats.own_goals ?? 0,
+                penalties_saved: stats.penalties_saved ?? 0,
+                penalties_missed: stats.penalties_missed ?? 0,
+                yellow_cards: stats.yellow_cards ?? 0,
+                red_cards: stats.red_cards ?? 0,
+                saves: stats.saves ?? 0,
+                bonus: stats.bonus ?? 0,
+                bps: stats.bps ?? 0,
+                defensive_contribution: stats.defensive_contribution ?? 0,
+                defensive_contribution_value: stats.defensive_contribution ?? 0,
+                defensive_contribution_points: dcPoints,
+                explain: liveEl.explain || [],
+                breakdown: {
+                  minutes: stats.minutes ?? 0,
+                  totalPoints: stats.total_points ?? 0,
+                  goalsScored: stats.goals_scored ?? 0,
+                  assists: stats.assists ?? 0,
+                  cleanSheets: stats.clean_sheets ?? 0,
+                  goalsConceded: stats.goals_conceded ?? 0,
+                  ownGoals: stats.own_goals ?? 0,
+                  penaltiesSaved: stats.penalties_saved ?? 0,
+                  penaltiesMissed: stats.penalties_missed ?? 0,
+                  yellowCards: stats.yellow_cards ?? 0,
+                  redCards: stats.red_cards ?? 0,
+                  saves: stats.saves ?? 0,
+                  bonus: stats.bonus ?? 0,
+                  bps: stats.bps ?? 0,
+                  defensiveContribution: stats.defensive_contribution ?? 0,
+                  defensiveContributionValue: stats.defensive_contribution ?? 0,
+                  defensiveContributionPoints: dcPoints,
+                },
               };
             });
 

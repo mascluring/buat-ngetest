@@ -2,11 +2,47 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState, Fragment } from 'react';
 import { ArrowDown, ArrowUp, Crown, Medal, RefreshCw, Search, Trophy, Users, Zap, BarChart3, Sparkles, X, ChevronDown, ChevronUp, TrendingUp, Calendar } from 'lucide-react';
+import { getPlayerBreakdownRows } from '@/lib/player-points';
 
 const fmt=(n:number)=>new Intl.NumberFormat('id-ID').format(n);
 const initials=(name:string)=>name.split(' ').filter(Boolean).map(x=>x[0]).slice(0,2).join('').toUpperCase();
 type Row={entry:number;entry_name:string;player_name:string;rank:number;last_rank:number;total:number;event_total:number};
-type PickPlayer={id:number;name:string;elementType:number;teamCode:number;teamShortName:string;jerseyUrl:string;position:number;multiplier:number;isCaptain:boolean;isVice:boolean;points:number;rawPoints:number;minutes:number;goals_scored:number;assists:number;saves:number;clean_sheets:number;bonus:number;yellow_cards:number;red_cards:number;own_goals:number};
+type PickPlayer={
+  id:number;
+  name:string;
+  fullName?:string;
+  elementType:number;
+  positionName?:string;
+  teamCode:number;
+  teamShortName:string;
+  teamName?:string;
+  jerseyUrl:string;
+  position:number;
+  multiplier:number;
+  isCaptain:boolean;
+  isVice:boolean;
+  points:number;
+  rawPoints:number;
+  minutes:number;
+  total_points?:number;
+  goals_scored:number;
+  assists:number;
+  saves:number;
+  clean_sheets:number;
+  goals_conceded?:number;
+  own_goals:number;
+  penalties_saved?:number;
+  penalties_missed?:number;
+  yellow_cards:number;
+  red_cards:number;
+  bonus:number;
+  bps?:number;
+  defensive_contribution?:number;
+  defensive_contribution_value?:number;
+  defensive_contribution_points?:number;
+  explain?:any[];
+  breakdown?:any;
+};
 type Detail={
   entry:number;
   captainName:string;
@@ -214,7 +250,7 @@ export default function Home(){
                  {viewMode === 'pitch' ? (
                    <PitchView detail={detail} picksList={detail?.picksList || []} onPlayerClick={(p) => setSelectedPlayer(p)} />
                  ) : (
-                   <ListView picksList={detail?.picksList || []} />
+                   <ListView picksList={detail?.picksList || []} onPlayerClick={(p) => setSelectedPlayer(p)} />
                  )}
                </div>
              </td>
@@ -232,16 +268,6 @@ export default function Home(){
   </div>
   {selectedPlayer && <PlayerPopup player={selectedPlayer} onClose={closePlayerPopup} />}
  </main>
-}
-
-function StatRow({ label, value, points }: { label: string; value: number; points: number }) {
-  return (
-    <div className="grid grid-cols-3 gap-2 items-center">
-      <div className="text-slate-200">{label}</div>
-      <div className="text-center font-bold text-white">{value}</div>
-      <div className="text-right font-bold text-emerald-400">{points} pts</div>
-    </div>
-  );
 }
 
 // Komponen Pitch View Lapangan Hijau persis seperti gambar FPL
@@ -294,44 +320,112 @@ function PitchView({ detail, picksList, onPlayerClick }: { detail?: Detail; pick
   );
 }
 
-function PlayerPopup({ player, onClose }: { player: PickPlayer; onClose: () => void }) {
+function PlayerPopup({ player, onClose }: { player: any; onClose: () => void }) {
+  const { rows, officialRaw, calculatedRaw } = getPlayerBreakdownRows(player);
+  const visibleBreakdown = rows.filter(
+    (item) => Number(item.points ?? 0) !== 0
+  );
+  const multiplier = player.multiplier || 1;
+  const isCaptain = player.isCaptain;
+  const isVice = player.isVice;
+  const finalPoints = officialRaw * multiplier;
+  const posLabel = player.positionName || (player.elementType === 1 ? 'GKP' : player.elementType === 2 ? 'DEF' : player.elementType === 3 ? 'MID' : 'FWD');
+
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-slate-900 rounded-xl border border-slate-700 max-w-sm w-full shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
-        <div className="p-6 border-b border-slate-800">
-          <h3 className="text-2xl font-black text-white">{player.name}</h3>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-all" onClick={onClose}>
+      <div className="bg-slate-900 rounded-2xl border border-slate-700/80 max-w-sm w-full shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div className="p-5 border-b border-slate-800 bg-slate-950/60">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                <span className="text-xs font-black px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  {posLabel}
+                </span>
+                <span className="text-sm font-semibold text-slate-400">
+                  {player.teamShortName || player.teamName || ''}
+                </span>
+                {isCaptain && (
+                  <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-400 text-black">
+                    {multiplier === 3 ? 'TRIPLE CAPTAIN (3x)' : 'CAPTAIN (2x)'}
+                  </span>
+                )}
+                {isVice && !isCaptain && (
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                    VICE CAPTAIN
+                  </span>
+                )}
+              </div>
+              <h3 className="text-xl font-black text-white tracking-tight">{player.name}</h3>
+            </div>
+            {player.jerseyUrl && (
+              <img 
+                src={player.jerseyUrl} 
+                alt="Jersey" 
+                className="w-12 h-12 object-contain drop-shadow-md"
+              />
+            )}
+          </div>
         </div>
         
-        <div className="p-6">
-          <h4 className="text-lg font-bold text-white mb-4">Points breakdown</h4>
+        {/* Body */}
+        <div className="p-5 max-h-[60vh] overflow-y-auto">
+          <div className="flex items-center justify-between mb-4">
+            <h4 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Points Breakdown</h4>
+          </div>
           
-          <div className="grid grid-cols-3 gap-2 text-sm text-slate-400 mb-2 font-semibold uppercase tracking-wider">
-            <div>Statistic</div>
-            <div className="text-center">Value</div>
-            <div className="text-right">Points</div>
+          <div className="grid grid-cols-12 gap-2 text-xs text-slate-400 mb-3 font-bold uppercase tracking-wider border-b border-slate-800 pb-2">
+            <div className="col-span-6">Statistic</div>
+            <div className="col-span-3 text-center">Value</div>
+            <div className="col-span-3 text-right">Points</div>
           </div>
 
-          <div className="space-y-3 text-sm text-slate-300">
-            <StatRow label="Minutes played" value={player.minutes} points={player.minutes >= 60 ? 2 : player.minutes > 0 ? 1 : 0} />
-            <StatRow label="Goals scored" value={player.goals_scored} points={player.goals_scored * 4} />
-            <StatRow label="Assists" value={player.assists} points={player.assists * 3} />
-            <StatRow label="Clean sheets" value={player.clean_sheets} points={player.elementType >= 2 ? 4 : 6} />
-            <StatRow label="Saves" value={player.elementType === 1 ? player.saves : 0} points={player.elementType === 1 ? Math.floor(player.saves / 3) : 0} />
-            <StatRow label="Bonus" value={player.bonus} points={player.bonus} />
-            <StatRow label="Def. contrib" value={player.goals_scored + player.assists} points={(player.goals_scored * 4) + (player.assists * 3)} />
-            <StatRow label="Yellow Cards (YC)" value={player.yellow_cards} points={player.yellow_cards * -1} />
-            <StatRow label="Red Cards (xA)" value={player.red_cards} points={player.red_cards * -3} />
-            <StatRow label="Own Goals" value={player.own_goals} points={player.own_goals * -2} />
-          </div>
+          {visibleBreakdown.length === 0 ? (
+            <div className="py-6 px-4 text-center text-slate-400 text-sm bg-slate-950/40 rounded-xl border border-dashed border-slate-800 my-2">
+              Tidak ada kontribusi statistik tambahan untuk Gameweek ini.
+            </div>
+          ) : (
+            <div className="space-y-3 text-sm text-slate-300">
+              {visibleBreakdown.map((row) => (
+                <div key={row.key} className="grid grid-cols-12 gap-2 items-center py-0.5">
+                  <div className="col-span-6 text-slate-200 text-sm font-medium">{row.label}</div>
+                  <div className="col-span-3 text-center font-bold text-white text-sm">{row.value}</div>
+                  <div className={`col-span-3 text-right font-bold text-sm ${row.points < 0 ? 'text-rose-400' : row.points > 0 ? 'text-emerald-400' : 'text-slate-400'}`}>
+                    {row.points > 0 ? `+${row.points} pts` : row.points < 0 ? `${row.points} pts` : '0 pts'}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
-          <div className="mt-6 pt-4 border-t border-slate-700 flex justify-between items-center text-white">
-            <span className="font-bold text-lg">Total Points:</span>
-            <span className="font-black text-2xl">{player.points}</span>
+          {/* Points Summary */}
+          <div className="mt-6 pt-4 border-t border-slate-800 space-y-2 bg-slate-950/40 p-4 rounded-xl border border-slate-800/80">
+            {multiplier > 1 ? (
+              <>
+                <div className="flex justify-between items-center text-sm text-slate-400">
+                  <span>Official Raw Points:</span>
+                  <span className="font-semibold text-slate-200">{officialRaw} pts</span>
+                </div>
+                <div className="flex justify-between items-center text-sm text-slate-400">
+                  <span>Captain Multiplier:</span>
+                  <span className="font-bold text-amber-400">x{multiplier}</span>
+                </div>
+                <div className="flex justify-between items-center text-white pt-2 border-t border-slate-800">
+                  <span className="font-bold text-sm uppercase tracking-wide">Final Points:</span>
+                  <span className="font-black text-2xl text-emerald-400">{finalPoints} <span className="text-sm font-normal text-slate-300">pts</span></span>
+                </div>
+              </>
+            ) : (
+              <div className="flex justify-between items-center text-white">
+                <span className="font-bold text-sm uppercase tracking-wide">Official FPL Points:</span>
+                <span className="font-black text-2xl text-emerald-400">{finalPoints} <span className="text-sm font-normal text-slate-300">pts</span></span>
+              </div>
+            )}
           </div>
         </div>
         
-        <div className="p-4 bg-slate-800">
-          <button onClick={onClose} className="w-full bg-slate-700 py-2 rounded-lg text-sm font-semibold text-white hover:bg-slate-600">Tutup</button>
+        <div className="p-4 bg-slate-950/80 border-t border-slate-800">
+          <button onClick={onClose} className="w-full bg-slate-800 hover:bg-slate-700 py-3 rounded-xl text-sm font-bold text-white transition-colors">Tutup</button>
         </div>
       </div>
     </div>
@@ -376,7 +470,7 @@ function PlayerCard({ player, isBench, onClick }: { player: PickPlayer; isBench?
   );
 }
 
-function ListView({ picksList }: { picksList: PickPlayer[] }) {
+function ListView({ picksList, onPlayerClick }: { picksList: PickPlayer[]; onPlayerClick?: (p: PickPlayer) => void }) {
   return (
     <div className="bg-slate-900 rounded-xl p-4 text-left">
       <table className="w-full text-xs text-slate-200">
@@ -391,7 +485,7 @@ function ListView({ picksList }: { picksList: PickPlayer[] }) {
         </thead>
         <tbody>
           {picksList.map(p => (
-            <tr key={p.id} className="border-b border-slate-800">
+            <tr key={p.id} className="border-b border-slate-800 hover:bg-slate-800/60 cursor-pointer transition-colors" onClick={() => onPlayerClick?.(p)}>
               <td className="py-2 font-mono">{p.position <= 11 ? `S${p.position}` : `B${p.position-11}`}</td>
               <td className="py-2 font-bold">{p.name}</td>
               <td className="py-2 text-center">{p.isCaptain ? 'Captain (C)' : p.isVice ? 'Vice (V)' : 'Starter'}</td>

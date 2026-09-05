@@ -25,6 +25,30 @@ function TeamBadge({ team }: { team: string }) {
   );
 }
 
+function hasFixtureResult(fixture: any): boolean {
+  return (
+    fixture != null &&
+    fixture.team_h_score !== null &&
+    fixture.team_h_score !== undefined &&
+    fixture.team_a_score !== null &&
+    fixture.team_a_score !== undefined
+  );
+}
+
+const matchStatsLabels: Record<string, string> = {
+  goals_scored: '⚽ Gol',
+  assists: '👟 Assist',
+  own_goals: '🥅 Gol Bunuh Diri',
+  yellow_cards: '🟨 Kartu Kuning',
+  red_cards: '🟥 Kartu Merah',
+  saves: '🧤 Penyelamatan',
+  penalties_saved: '🧤 Penalti Ditepis',
+  penalties_missed: '❌ Penalti Gagal',
+  bonus: '⭐ Bonus',
+  bps: '📊 Bonus Points System',
+  defensive_contribution: '🛡️ Defensive Contribution',
+};
+
 export default function FixturesPage() {
   const [gw, setGw] = useState<number | null>(null);
   const [data, setData] = useState<any>(null);
@@ -220,11 +244,14 @@ export default function FixturesPage() {
                     minute: '2-digit' 
                   }).replace(/\./g, ':');
                   
+                  const hasResult = hasFixtureResult(match);
+
                   return (
                     <div 
                       key={match.id} 
-                      className={`card p-3 md:p-4 bg-slate-900/80 border border-slate-800 hover:border-slate-700 transition-colors flex items-center justify-between mx-auto max-w-3xl ${match.finished ? 'cursor-pointer hover:bg-slate-800' : ''}`}
-                      onClick={() => match.finished && setSelectedMatch(match)}
+                      className={`card p-3 md:p-4 bg-slate-900/80 border border-slate-800 hover:border-slate-700 transition-colors flex items-center justify-between mx-auto max-w-3xl ${hasResult ? 'cursor-pointer hover:bg-slate-800' : ''}`}
+                      onClick={() => hasResult && setSelectedMatch(match)}
+                      title={hasResult ? 'Klik untuk melihat detail pertandingan' : undefined}
                     >
                       {/* Home Team */}
                       <div className="flex-1 flex items-center justify-end gap-3 md:gap-4 text-right">
@@ -276,44 +303,63 @@ export default function FixturesPage() {
       )}
 
       {selectedMatch && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={closePopup}>
-          <div className="bg-slate-900 p-6 rounded-xl border border-slate-700 max-w-sm w-full shadow-2xl" onClick={e => e.stopPropagation()}>
-            <div className="text-center font-bold text-lg text-white mb-4">Finished</div>
-            <div className="flex justify-between items-center text-sm mb-4">
-              <div className="font-bold">{selectedMatch.homeTeam.name}</div>
-              <div className="font-black text-2xl">{selectedMatch.team_h_score} - {selectedMatch.team_a_score}</div>
-              <div className="font-bold">{selectedMatch.awayTeam.name}</div>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-all" onClick={closePopup}>
+          <div className="bg-slate-900 p-6 rounded-2xl border border-slate-700 max-w-md w-full shadow-2xl max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="text-center font-bold text-xs uppercase tracking-wider text-slate-400 mb-2">
+              {selectedMatch.finished ? 'Finished' : selectedMatch.finished_provisional ? 'Finished (Provisional)' : selectedMatch.started ? 'Live' : 'Match Result'}
             </div>
-            <div className="space-y-4 text-sm text-slate-300">
-              {selectedMatch.stats.map((s: any) => {
-                if (s.h.length === 0 && s.a.length === 0) return null;
-                
-                const labels: Record<string, string> = {
-                  goals_scored: '⚽ Gol',
-                  assists: '👟 Assist',
-                  bonus: '⭐ Bonus',
-                  yellow_cards: '🟨 Kartu Kuning',
-                  red_cards: '🟥 Kartu Merah'
-                };
-                
-                if (!labels[s.identifier]) return null;
+            <div className="flex justify-between items-center text-sm mb-5 bg-slate-950/60 p-3 rounded-xl border border-slate-800">
+              <div className="font-bold text-slate-200 flex-1 text-left">{selectedMatch.homeTeam.name}</div>
+              <div className="font-black text-2xl px-4 text-emerald-400 tabular-nums">
+                {selectedMatch.team_h_score ?? 0} - {selectedMatch.team_a_score ?? 0}
+              </div>
+              <div className="font-bold text-slate-200 flex-1 text-right">{selectedMatch.awayTeam.name}</div>
+            </div>
+            
+            {(() => {
+              const activeStats = (selectedMatch.stats || []).filter((s: any) => {
+                if (!matchStatsLabels[s.identifier]) return false;
+                return (s.h && s.h.length > 0) || (s.a && s.a.length > 0);
+              });
 
+              if (activeStats.length === 0) {
                 return (
-                  <div key={s.identifier}>
-                    <div className="font-bold text-slate-400 text-xs uppercase mb-1">{labels[s.identifier]}</div>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div className="text-right">
-                        {s.h.map((h: any, i: number) => <div key={i}>{h.name} {h.value > 1 ? `(${h.value})` : ''}</div>)}
-                      </div>
-                      <div className="text-left">
-                        {s.a.map((a: any, i: number) => <div key={i}>{a.name} {a.value > 1 ? `(${a.value})` : ''}</div>)}
-                      </div>
-                    </div>
+                  <div className="py-6 px-4 text-center text-slate-400 text-sm bg-slate-950/40 rounded-xl border border-dashed border-slate-800 my-2">
+                    Detail statistik pertandingan belum tersedia.
                   </div>
                 );
-              })}
-            </div>
-            <button onClick={closePopup} className="w-full mt-6 bg-slate-800 py-2 rounded-lg text-sm font-semibold">Tutup</button>
+              }
+
+              return (
+                <div className="space-y-4 text-sm text-slate-300">
+                  {activeStats.map((s: any) => (
+                    <div key={s.identifier} className="bg-slate-950/30 p-3 rounded-lg border border-slate-800/80">
+                      <div className="font-bold text-slate-400 text-xs uppercase mb-2 flex items-center gap-1.5">
+                        {matchStatsLabels[s.identifier]}
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 text-xs">
+                        <div className="text-right space-y-1">
+                          {s.h.map((h: any, i: number) => (
+                            <div key={i} className="text-slate-300">
+                              <span className="font-medium text-white">{h.name}</span> {h.value > 1 ? <span className="text-slate-400">({h.value})</span> : ''}
+                            </div>
+                          ))}
+                        </div>
+                        <div className="text-left space-y-1">
+                          {s.a.map((a: any, i: number) => (
+                            <div key={i} className="text-slate-300">
+                              <span className="font-medium text-white">{a.name}</span> {a.value > 1 ? <span className="text-slate-400">({a.value})</span> : ''}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+
+            <button onClick={closePopup} className="w-full mt-6 bg-slate-800 hover:bg-slate-700 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors">Tutup</button>
           </div>
         </div>
       )}

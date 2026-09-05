@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { ArrowLeft, RefreshCw, Sparkles, Trophy, TrendingUp, Shield, BarChart2, Award, ArrowLeftRight } from 'lucide-react';
+import { getPlayerBreakdownRows } from '@/lib/player-points';
 
 const fmt = (n: number) => new Intl.NumberFormat('id-ID').format(n);
 const initials = (name: string) => name.split(' ').filter(Boolean).map(x => x[0]).slice(0, 2).join('').toUpperCase();
@@ -777,13 +778,16 @@ export default function ManagerDetail({ params }: { params: { id: string } }) {
           onClose={closePlayerPopup} 
         />
       )}
-      <footer className="mt-12 text-center text-xs text-slate-500 pb-6">ERA SUPER LEAGUE • V6.0 Manager Profile • League ID 134820</footer>
+      <footer className="mt-12 text-center text-xs text-slate-500 pb-6">ERA SUPER LEAGUE • V6.3 Manager Profile • League ID 134820</footer>
     </main>
   );
 }
 
 function PlayerPopup({ player, onClose }: { player: any, onClose: () => void }) {
   const { rows, officialRaw, calculatedRaw } = getPlayerBreakdownRows(player);
+  const visibleBreakdown = rows.filter(
+    (item) => Number(item.points ?? 0) !== 0
+  );
   const multiplier = player.multiplier || 1;
   const isCaptain = player.isCaptain;
   const isVice = player.isVice;
@@ -839,17 +843,23 @@ function PlayerPopup({ player, onClose }: { player: any, onClose: () => void }) 
             <div className="col-span-3 text-right">Points</div>
           </div>
 
-          <div className="space-y-3 text-sm text-slate-300">
-            {rows.map((row) => (
-              <div key={row.key} className="grid grid-cols-12 gap-2 items-center py-0.5">
-                <div className="col-span-6 text-slate-200 text-sm font-medium">{row.label}</div>
-                <div className="col-span-3 text-center font-bold text-white text-sm">{row.value}</div>
-                <div className={`col-span-3 text-right font-bold text-sm ${row.points < 0 ? 'text-rose-400' : row.points > 0 ? 'text-emerald-400' : 'text-slate-400'}`}>
-                  {row.points > 0 ? `+${row.points} pts` : row.points < 0 ? `${row.points} pts` : '0 pts'}
+          {visibleBreakdown.length === 0 ? (
+            <div className="py-6 px-4 text-center text-slate-400 text-sm bg-slate-950/40 rounded-xl border border-dashed border-slate-800 my-2">
+              Tidak ada kontribusi statistik tambahan untuk Gameweek ini.
+            </div>
+          ) : (
+            <div className="space-y-3 text-sm text-slate-300">
+              {visibleBreakdown.map((row) => (
+                <div key={row.key} className="grid grid-cols-12 gap-2 items-center py-0.5">
+                  <div className="col-span-6 text-slate-200 text-sm font-medium">{row.label}</div>
+                  <div className="col-span-3 text-center font-bold text-white text-sm">{row.value}</div>
+                  <div className={`col-span-3 text-right font-bold text-sm ${row.points < 0 ? 'text-rose-400' : row.points > 0 ? 'text-emerald-400' : 'text-slate-400'}`}>
+                    {row.points > 0 ? `+${row.points} pts` : row.points < 0 ? `${row.points} pts` : '0 pts'}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
 
           {/* Points Summary */}
           <div className="mt-6 pt-4 border-t border-slate-800 space-y-2 bg-slate-950/40 p-4 rounded-xl border border-slate-800/80">
@@ -885,347 +895,6 @@ function PlayerPopup({ player, onClose }: { player: any, onClose: () => void }) 
   );
 }
 
-interface PointBreakdownRow {
-  key: string;
-  label: string;
-  value: number;
-  points: number;
-}
-
-function getPlayerBreakdownRows(player: any): { rows: PointBreakdownRow[]; officialRaw: number; calculatedRaw: number } {
-  const b = player.breakdown || {};
-  const minutes = b.minutes ?? player.minutes ?? 0;
-  const goalsScored = b.goalsScored ?? player.goals_scored ?? 0;
-  const assists = b.assists ?? player.assists ?? 0;
-  const cleanSheets = b.cleanSheets ?? player.clean_sheets ?? 0;
-  const goalsConceded = b.goalsConceded ?? player.goals_conceded ?? 0;
-  const ownGoals = b.ownGoals ?? player.own_goals ?? 0;
-  const penaltiesSaved = b.penaltiesSaved ?? player.penalties_saved ?? 0;
-  const penaltiesMissed = b.penaltiesMissed ?? player.penalties_missed ?? 0;
-  const yellowCards = b.yellowCards ?? player.yellow_cards ?? 0;
-  const redCards = b.redCards ?? player.red_cards ?? 0;
-  const saves = b.saves ?? player.saves ?? 0;
-  const bonus = b.bonus ?? player.bonus ?? 0;
-  const dcValue = b.defensiveContributionValue ?? b.defensiveContribution ?? player.defensive_contribution ?? 0;
-  const dcPoints = b.defensiveContributionPoints ?? player.defensive_contribution_points ?? 0;
-  
-  const elementType = player.elementType || 1; // 1: GKP, 2: DEF, 3: MID, 4: FWD
-  const isGkpOrDef = elementType === 1 || elementType === 2;
-  const isMid = elementType === 3;
-
-  const officialRaw = player.rawPoints ?? b.totalPoints ?? player.total_points ?? 0;
-
-  // If explain exists from FPL live API, map fixtures to exact official breakdown
-  const explain = player.explain || [];
-  if (Array.isArray(explain) && explain.length > 0) {
-    const explainStatMap = new Map<string, { value: number; points: number }>();
-    explain.forEach((fixture: any) => {
-      (fixture.stats || []).forEach((s: any) => {
-        const id = s.identifier;
-        const current = explainStatMap.get(id) || { value: 0, points: 0 };
-        explainStatMap.set(id, {
-          value: current.value + (s.value ?? 0),
-          points: current.points + (s.points ?? 0),
-        });
-      });
-    });
-
-    const rows: PointBreakdownRow[] = [];
-
-    // 1. Minutes (always show)
-    const minStat = explainStatMap.get('minutes') || {
-      value: minutes,
-      points: minutes >= 60 ? 2 : minutes > 0 ? 1 : 0,
-    };
-    rows.push({
-      key: 'minutes',
-      label: 'Minutes played',
-      value: minStat.value,
-      points: minStat.points,
-    });
-
-    // 2. Goals scored
-    const goalStat = explainStatMap.get('goals_scored');
-    if (goalStat && (goalStat.value > 0 || goalStat.points !== 0)) {
-      rows.push({
-        key: 'goals_scored',
-        label: 'Goals scored',
-        value: goalStat.value,
-        points: goalStat.points,
-      });
-    }
-
-    // 3. Assists
-    const assistStat = explainStatMap.get('assists');
-    if (assistStat && (assistStat.value > 0 || assistStat.points !== 0)) {
-      rows.push({
-        key: 'assists',
-        label: 'Assists',
-        value: assistStat.value,
-        points: assistStat.points,
-      });
-    }
-
-    // 4. Clean Sheet
-    const csStat = explainStatMap.get('clean_sheets');
-    if (csStat && (csStat.value > 0 || csStat.points !== 0)) {
-      rows.push({
-        key: 'clean_sheets',
-        label: 'Clean Sheet',
-        value: csStat.value,
-        points: csStat.points,
-      });
-    }
-
-    // 5. Defensive Contribution
-    const dcStat = explainStatMap.get('defensive_contribution');
-    if (dcStat && (dcStat.value > 0 || dcStat.points !== 0)) {
-      rows.push({
-        key: 'defensive_contribution',
-        label: 'Defensive Contribution',
-        value: dcStat.value,
-        points: dcStat.points,
-      });
-    } else if (dcValue > 0 && dcPoints > 0) {
-      rows.push({
-        key: 'defensive_contribution',
-        label: 'Defensive Contribution',
-        value: dcValue,
-        points: dcPoints,
-      });
-    }
-
-    // 6. Goals Conceded
-    const gcStat = explainStatMap.get('goals_conceded');
-    if (gcStat && (gcStat.value > 0 || gcStat.points !== 0)) {
-      rows.push({
-        key: 'goals_conceded',
-        label: 'Goals Conceded',
-        value: gcStat.value,
-        points: gcStat.points,
-      });
-    }
-
-    // 7. Saves
-    const saveStat = explainStatMap.get('saves');
-    if (saveStat && (saveStat.value > 0 || saveStat.points !== 0)) {
-      rows.push({
-        key: 'saves',
-        label: 'Saves',
-        value: saveStat.value,
-        points: saveStat.points,
-      });
-    }
-
-    // 8. Penalties Saved
-    const psStat = explainStatMap.get('penalties_saved');
-    if (psStat && (psStat.value > 0 || psStat.points !== 0)) {
-      rows.push({
-        key: 'penalties_saved',
-        label: 'Penalties Saved',
-        value: psStat.value,
-        points: psStat.points,
-      });
-    }
-
-    // 9. Penalties Missed
-    const pmStat = explainStatMap.get('penalties_missed');
-    if (pmStat && (pmStat.value > 0 || pmStat.points !== 0)) {
-      rows.push({
-        key: 'penalties_missed',
-        label: 'Penalties Missed',
-        value: pmStat.value,
-        points: pmStat.points,
-      });
-    }
-
-    // 10. Own Goals
-    const ogStat = explainStatMap.get('own_goals');
-    if (ogStat && (ogStat.value > 0 || ogStat.points !== 0)) {
-      rows.push({
-        key: 'own_goals',
-        label: 'Own Goals',
-        value: ogStat.value,
-        points: ogStat.points,
-      });
-    }
-
-    // 11. Yellow Cards
-    const ycStat = explainStatMap.get('yellow_cards');
-    if (ycStat && (ycStat.value > 0 || ycStat.points !== 0)) {
-      rows.push({
-        key: 'yellow_cards',
-        label: 'Yellow Card',
-        value: ycStat.value,
-        points: ycStat.points,
-      });
-    }
-
-    // 12. Red Cards
-    const rcStat = explainStatMap.get('red_cards');
-    if (rcStat && (rcStat.value > 0 || rcStat.points !== 0)) {
-      rows.push({
-        key: 'red_cards',
-        label: 'Red Card',
-        value: rcStat.value,
-        points: rcStat.points,
-      });
-    }
-
-    // 13. Bonus
-    const bonusStat = explainStatMap.get('bonus');
-    if (bonusStat && (bonusStat.value > 0 || bonusStat.points !== 0)) {
-      rows.push({
-        key: 'bonus',
-        label: 'Bonus',
-        value: bonusStat.value,
-        points: bonusStat.points,
-      });
-    }
-
-    const calculatedRaw = rows.reduce((sum, r) => sum + r.points, 0);
-    return { rows, officialRaw, calculatedRaw };
-  }
-
-  // Fallback direct rule calculation
-  const rows: PointBreakdownRow[] = [];
-
-  // Minutes (always)
-  const minPts = minutes >= 60 ? 2 : minutes > 0 ? 1 : 0;
-  rows.push({
-    key: 'minutes',
-    label: 'Minutes played',
-    value: minutes,
-    points: minPts,
-  });
-
-  // Goals
-  if (goalsScored > 0) {
-    const goalPts = goalsScored * (isGkpOrDef ? 6 : isMid ? 5 : 4);
-    rows.push({
-      key: 'goals_scored',
-      label: 'Goals scored',
-      value: goalsScored,
-      points: goalPts,
-    });
-  }
-
-  // Assists
-  if (assists > 0) {
-    rows.push({
-      key: 'assists',
-      label: 'Assists',
-      value: assists,
-      points: assists * 3,
-    });
-  }
-
-  // Clean Sheet
-  if (cleanSheets > 0 && minutes >= 60 && (isGkpOrDef || isMid)) {
-    const csPts = isGkpOrDef ? cleanSheets * 4 : cleanSheets * 1;
-    rows.push({
-      key: 'clean_sheets',
-      label: 'Clean Sheet',
-      value: cleanSheets,
-      points: csPts,
-    });
-  }
-
-  // Defensive Contribution
-  if (dcValue > 0 && dcPoints > 0) {
-    rows.push({
-      key: 'defensive_contribution',
-      label: 'Defensive Contribution',
-      value: dcValue,
-      points: dcPoints,
-    });
-  }
-
-  // Goals Conceded
-  if (isGkpOrDef && goalsConceded >= 2 && minutes > 0) {
-    const gcPts = -Math.floor(goalsConceded / 2);
-    rows.push({
-      key: 'goals_conceded',
-      label: 'Goals Conceded',
-      value: goalsConceded,
-      points: gcPts,
-    });
-  }
-
-  // Saves
-  if (elementType === 1 && saves >= 3) {
-    const savePts = Math.floor(saves / 3);
-    rows.push({
-      key: 'saves',
-      label: 'Saves',
-      value: saves,
-      points: savePts,
-    });
-  }
-
-  // Penalties Saved
-  if (penaltiesSaved > 0) {
-    rows.push({
-      key: 'penalties_saved',
-      label: 'Penalties Saved',
-      value: penaltiesSaved,
-      points: penaltiesSaved * 5,
-    });
-  }
-
-  // Penalties Missed
-  if (penaltiesMissed > 0) {
-    rows.push({
-      key: 'penalties_missed',
-      label: 'Penalties Missed',
-      value: penaltiesMissed,
-      points: penaltiesMissed * -2,
-    });
-  }
-
-  // Own Goals
-  if (ownGoals > 0) {
-    rows.push({
-      key: 'own_goals',
-      label: 'Own Goals',
-      value: ownGoals,
-      points: ownGoals * -2,
-    });
-  }
-
-  // Yellow Cards
-  if (yellowCards > 0) {
-    rows.push({
-      key: 'yellow_cards',
-      label: 'Yellow Card',
-      value: yellowCards,
-      points: yellowCards * -1,
-    });
-  }
-
-  // Red Cards
-  if (redCards > 0) {
-    rows.push({
-      key: 'red_cards',
-      label: 'Red Card',
-      value: redCards,
-      points: redCards * -3,
-    });
-  }
-
-  // Bonus
-  if (bonus > 0) {
-    rows.push({
-      key: 'bonus',
-      label: 'Bonus',
-      value: bonus,
-      points: bonus,
-    });
-  }
-
-  const calculatedRaw = rows.reduce((sum, r) => sum + r.points, 0);
-  return { rows, officialRaw, calculatedRaw };
-}
 
 function PlayerCard({ player, isBench, onClick }: { player: any; isBench?: boolean; onClick?: () => void }) {
   return (
