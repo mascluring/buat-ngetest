@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState, Fragment } from 'react';
 import { ArrowDown, ArrowUp, Crown, Medal, RefreshCw, Search, Trophy, Users, Zap, BarChart3, Sparkles, X, ChevronDown, ChevronUp, TrendingUp, Calendar } from 'lucide-react';
 import { getPlayerBreakdownRows } from '@/lib/player-points';
+import { calculateLeagueOwnership, getPlayerOwnershipMap, type PlayerOwnershipStats } from '@/lib/league-analytics';
 
 const fmt=(n:number)=>new Intl.NumberFormat('id-ID').format(n);
 const initials=(name:string)=>name.split(' ').filter(Boolean).map(x=>x[0]).slice(0,2).join('').toUpperCase();
@@ -104,6 +105,16 @@ export default function Home(){
  const faller = analytics?.biggestFaller;
  const top10=(data?.standings??[]).slice(0,10);
 
+ const ownershipMap = useMemo(() => {
+   if (!data?.details) return new Map<number, PlayerOwnershipStats>();
+   const managers = Object.values(data.details).map((d) => ({
+     entry: d.entry,
+     picks: d.picksList || []
+   }));
+   const stats = calculateLeagueOwnership(managers);
+   return getPlayerOwnershipMap(stats);
+ }, [data?.details]);
+
  const toggleExpand = (entryId: number) => {
    setExpandedEntry(prev => prev === entryId ? null : entryId);
  };
@@ -111,7 +122,7 @@ export default function Home(){
  return <main>
   <section className="hero"><div className="hero-orb orb-one"/><div className="hero-orb orb-two"/><div className="container hero-inner">
    <div className="hero-top"><div className="brand-pill"><Trophy size={15}/> FANTASY PREMIER LEAGUE</div><div className="id-pill">LEAGUE ID <b>134820</b></div></div>
-   <div className="hero-copy"><div className="eyebrow">2026 / 27 • CLASSIC LEAGUE • V6.3</div><h1>ERA <span>SUPER</span> LEAGUE</h1><p>Command center untuk memantau klasemen, momentum ranking, performa Gameweek, dan manager terbaik dalam satu dashboard.</p></div>
+   <div className="hero-copy"><div className="eyebrow">2026 / 27 • CLASSIC LEAGUE • V6.4</div><h1>ERA <span>SUPER</span> LEAGUE</h1><p>Command center untuk memantau klasemen, momentum ranking, performa Gameweek, dan manager terbaik dalam satu dashboard.</p></div>
    <div className="hero-meta"><span><i/> Live FPL Data</span><span>Gameweek {data?.current??'—'}</span><span>FPL API • retry 3x</span></div>
   </div></section>
   <div className="container page-shell">
@@ -248,9 +259,9 @@ export default function Home(){
 
                  {/* LAPANGAN HIJAU PITCH VIEW */}
                  {viewMode === 'pitch' ? (
-                   <PitchView detail={detail} picksList={detail?.picksList || []} onPlayerClick={(p) => setSelectedPlayer(p)} />
+                   <PitchView detail={detail} picksList={detail?.picksList || []} onPlayerClick={(p) => setSelectedPlayer(p)} ownershipMap={ownershipMap} />
                  ) : (
-                   <ListView picksList={detail?.picksList || []} onPlayerClick={(p) => setSelectedPlayer(p)} />
+                   <ListView picksList={detail?.picksList || []} onPlayerClick={(p) => setSelectedPlayer(p)} ownershipMap={ownershipMap} />
                  )}
                </div>
              </td>
@@ -263,15 +274,15 @@ export default function Home(){
     </table></div>
     <div className="pager"><span>Halaman <b>{page}</b>{data?.hasNext?' • lanjut untuk melihat 50 berikutnya':''}</span><div><button disabled={page===1||loading} onClick={()=>setPage(p=>Math.max(1,p-1))}>← Prev</button><button disabled={!data?.hasNext||loading} onClick={()=>setPage(p=>p+1)}>Next →</button><button className="refresh" onClick={()=>load(page)} disabled={loading}><RefreshCw size={14} className={loading?'spin':''}/> Refresh</button></div></div>
    </section>
-   <div className="v3-note"><Sparkles size={16}/><div><b>V6.3 Interactive Pitch View &amp; Performance Insights</b><span>Formasi dapat diklik langsung untuk membuka visual pitch view lapangan dan perhitungan poin real-time.</span></div></div>
-   <footer>ERA SUPER LEAGUE • V6.3 Dashboard • League ID 134820 • Data from Fantasy Premier League</footer>
+   <div className="v3-note"><Sparkles size={16}/><div><b>V6.4 Interactive Pitch View, Ownership Radar &amp; Performance Insights</b><span>Formasi dapat diklik langsung untuk membuka visual pitch view lapangan dan perhitungan poin real-time.</span></div></div>
+   <footer>ERA SUPER LEAGUE • V6.4 Dashboard • League ID 134820 • Data from Fantasy Premier League</footer>
   </div>
-  {selectedPlayer && <PlayerPopup player={selectedPlayer} onClose={closePlayerPopup} />}
+  {selectedPlayer && <PlayerPopup player={selectedPlayer} onClose={closePlayerPopup} ownershipStat={ownershipMap.get(selectedPlayer.id)} />}
  </main>
 }
 
 // Komponen Pitch View Lapangan Hijau persis seperti gambar FPL
-function PitchView({ detail, picksList, onPlayerClick }: { detail?: Detail; picksList: PickPlayer[]; onPlayerClick: (p: PickPlayer) => void }) {
+function PitchView({ detail, picksList, onPlayerClick, ownershipMap }: { detail?: Detail; picksList: PickPlayer[]; onPlayerClick: (p: PickPlayer) => void; ownershipMap?: Map<number, PlayerOwnershipStats> }) {
   const starters = picksList.filter(p => p.position <= 11);
   const bench = picksList.filter(p => p.position > 11);
 
@@ -289,22 +300,22 @@ function PitchView({ detail, picksList, onPlayerClick }: { detail?: Detail; pick
 
       {/* GKP */}
       <div className="flex justify-center my-3 relative z-10">
-        {gkp.map(p => <PlayerCard key={p.id} player={p} onClick={() => onPlayerClick(p)} />)}
+        {gkp.map(p => <PlayerCard key={p.id} player={p} onClick={() => onPlayerClick(p)} ownershipStat={ownershipMap?.get(p.id)} />)}
       </div>
 
       {/* DEF */}
       <div className="flex justify-around my-4 relative z-10">
-        {def.map(p => <PlayerCard key={p.id} player={p} onClick={() => onPlayerClick(p)} />)}
+        {def.map(p => <PlayerCard key={p.id} player={p} onClick={() => onPlayerClick(p)} ownershipStat={ownershipMap?.get(p.id)} />)}
       </div>
 
       {/* MID */}
       <div className="flex justify-around my-4 relative z-10">
-        {mid.map(p => <PlayerCard key={p.id} player={p} onClick={() => onPlayerClick(p)} />)}
+        {mid.map(p => <PlayerCard key={p.id} player={p} onClick={() => onPlayerClick(p)} ownershipStat={ownershipMap?.get(p.id)} />)}
       </div>
 
       {/* FWD */}
       <div className="flex justify-around my-4 relative z-10">
-        {fwd.map(p => <PlayerCard key={p.id} player={p} onClick={() => onPlayerClick(p)} />)}
+        {fwd.map(p => <PlayerCard key={p.id} player={p} onClick={() => onPlayerClick(p)} ownershipStat={ownershipMap?.get(p.id)} />)}
       </div>
 
       {/* BENCH SECTION */}
@@ -312,7 +323,7 @@ function PitchView({ detail, picksList, onPlayerClick }: { detail?: Detail; pick
         <div className="mt-8 pt-4 border-t border-emerald-300/30 relative z-10 bg-black/40 rounded-xl p-3">
           <div className="text-xs uppercase font-bold text-emerald-200 mb-2">BENCH PLAYERS ({detail?.benchPoints || 0} PTS)</div>
           <div className="flex justify-around">
-            {bench.map(p => <PlayerCard key={p.id} player={p} isBench onClick={() => onPlayerClick(p)} />)}
+            {bench.map(p => <PlayerCard key={p.id} player={p} isBench onClick={() => onPlayerClick(p)} ownershipStat={ownershipMap?.get(p.id)} />)}
           </div>
         </div>
       )}
@@ -320,7 +331,7 @@ function PitchView({ detail, picksList, onPlayerClick }: { detail?: Detail; pick
   );
 }
 
-function PlayerPopup({ player, onClose }: { player: any; onClose: () => void }) {
+function PlayerPopup({ player, onClose, ownershipStat }: { player: any; onClose: () => void; ownershipStat?: PlayerOwnershipStats }) {
   const { rows, officialRaw, calculatedRaw } = getPlayerBreakdownRows(player);
   const visibleBreakdown = rows.filter(
     (item) => Number(item.points ?? 0) !== 0
@@ -355,8 +366,30 @@ function PlayerPopup({ player, onClose }: { player: any; onClose: () => void }) 
                     VICE CAPTAIN
                   </span>
                 )}
+                {ownershipStat && (
+                  <span className={`text-[10px] font-black px-1.5 py-0.5 rounded border ${
+                    ownershipStat.category === 'Core'
+                      ? 'bg-cyan-950/90 text-cyan-300 border-cyan-500/50'
+                      : ownershipStat.category === 'Differential'
+                      ? 'bg-amber-950/90 text-amber-300 border-amber-500/50'
+                      : 'bg-slate-800 text-slate-300 border-slate-700'
+                  }`}>
+                    {ownershipStat.category === 'Differential' ? 'DIFF (<15%)' : ownershipStat.category === 'Core' ? 'CORE (>60%)' : 'STANDARD'}
+                  </span>
+                )}
               </div>
               <h3 className="text-xl font-black text-white tracking-tight">{player.name}</h3>
+              {ownershipStat && (
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5 text-xs text-slate-400">
+                  <span>Own: <strong className="text-slate-200">{ownershipStat.ownership}%</strong> ({ownershipStat.ownerCount}/29)</span>
+                  <span>•</span>
+                  <span>Start: <strong className="text-slate-200">{ownershipStat.startingOwnership}%</strong></span>
+                  <span>•</span>
+                  <span>Cap: <strong className="text-slate-200">{ownershipStat.captainExposure}%</strong></span>
+                  <span>•</span>
+                  <span>EO: <strong className="text-emerald-400 font-bold">{ownershipStat.effectiveOwnership}%</strong></span>
+                </div>
+              )}
             </div>
             {player.jerseyUrl && (
               <img 
@@ -432,7 +465,7 @@ function PlayerPopup({ player, onClose }: { player: any; onClose: () => void }) 
   );
 }
 
-function PlayerCard({ player, isBench, onClick }: { player: PickPlayer; isBench?: boolean; onClick?: () => void }) {
+function PlayerCard({ player, isBench, onClick, ownershipStat }: { player: PickPlayer; isBench?: boolean; onClick?: () => void; ownershipStat?: PlayerOwnershipStats }) {
   return (
     <div 
       className={`player-card text-center flex flex-col items-center mx-1 ${isBench ? 'opacity-90' : ''} cursor-pointer transition-all duration-300 ease-out active:scale-95 active:shadow-[0_0_15px_rgba(255,255,255,0.5)]`}
@@ -449,6 +482,25 @@ function PlayerCard({ player, isBench, onClick }: { player: PickPlayer; isBench?
         ) : (
           <div className="w-12 h-12 bg-emerald-900 rounded-full flex items-center justify-center">👕</div>
         )}
+
+        {/* Ownership Badge: DIFF or CORE */}
+        {ownershipStat?.category === 'Core' && (
+          <span 
+            title={`Core Player: Own ${ownershipStat.ownership}% • EO ${ownershipStat.effectiveOwnership}%`} 
+            className="absolute -top-1 -left-1 bg-cyan-950/95 text-cyan-300 border border-cyan-400/80 text-[8px] font-black px-1.5 py-0.5 rounded shadow-md tracking-wider"
+          >
+            CORE
+          </span>
+        )}
+        {ownershipStat?.category === 'Differential' && (
+          <span 
+            title={`Differential: Own ${ownershipStat.ownership}% • EO ${ownershipStat.effectiveOwnership}%`} 
+            className="absolute -top-1 -left-1 bg-amber-950/95 text-amber-300 border border-amber-400/80 text-[8px] font-black px-1.5 py-0.5 rounded shadow-md tracking-wider"
+          >
+            DIFF
+          </span>
+        )}
+
         {player.isCaptain && (
           <span className="absolute -top-1 -right-1 bg-black text-amber-400 text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-amber-400 shadow-md">
             C
@@ -470,7 +522,7 @@ function PlayerCard({ player, isBench, onClick }: { player: PickPlayer; isBench?
   );
 }
 
-function ListView({ picksList, onPlayerClick }: { picksList: PickPlayer[]; onPlayerClick?: (p: PickPlayer) => void }) {
+function ListView({ picksList, onPlayerClick, ownershipMap }: { picksList: PickPlayer[]; onPlayerClick?: (p: PickPlayer) => void; ownershipMap?: Map<number, PlayerOwnershipStats> }) {
   return (
     <div className="bg-slate-900 rounded-xl p-4 text-left">
       <table className="w-full text-xs text-slate-200">
@@ -479,20 +531,35 @@ function ListView({ picksList, onPlayerClick }: { picksList: PickPlayer[]; onPla
             <th className="py-2">POS</th>
             <th className="py-2">PLAYER</th>
             <th className="py-2 text-center">ROLE</th>
+            <th className="py-2 text-center">OWNERSHIP</th>
             <th className="py-2 text-center">MINS</th>
             <th className="py-2 text-right">POINTS</th>
           </tr>
         </thead>
         <tbody>
-          {picksList.map(p => (
-            <tr key={p.id} className="border-b border-slate-800 hover:bg-slate-800/60 cursor-pointer transition-colors" onClick={() => onPlayerClick?.(p)}>
-              <td className="py-2 font-mono">{p.position <= 11 ? `S${p.position}` : `B${p.position-11}`}</td>
-              <td className="py-2 font-bold">{p.name}</td>
-              <td className="py-2 text-center">{p.isCaptain ? 'Captain (C)' : p.isVice ? 'Vice (V)' : 'Starter'}</td>
-              <td className="py-2 text-center font-mono">{p.minutes}'</td>
-              <td className="py-2 text-right font-mono font-bold text-amber-400">{p.points}</td>
-            </tr>
-          ))}
+          {picksList.map(p => {
+            const stat = ownershipMap?.get(p.id);
+            return (
+              <tr key={p.id} className="border-b border-slate-800 hover:bg-slate-800/60 cursor-pointer transition-colors" onClick={() => onPlayerClick?.(p)}>
+                <td className="py-2 font-mono">{p.position <= 11 ? `S${p.position}` : `B${p.position-11}`}</td>
+                <td className="py-2 font-bold flex items-center gap-1.5">
+                  <span>{p.name}</span>
+                  {stat?.category === 'Core' && (
+                    <span className="text-[8px] font-black px-1 py-0.2 rounded bg-cyan-950 text-cyan-300 border border-cyan-500/40">CORE</span>
+                  )}
+                  {stat?.category === 'Differential' && (
+                    <span className="text-[8px] font-black px-1 py-0.2 rounded bg-amber-950 text-amber-300 border border-amber-500/40">DIFF</span>
+                  )}
+                </td>
+                <td className="py-2 text-center">{p.isCaptain ? 'Captain (C)' : p.isVice ? 'Vice (V)' : 'Starter'}</td>
+                <td className="py-2 text-center font-mono">
+                  {stat ? `${stat.ownership}% (EO: ${stat.effectiveOwnership}%)` : '—'}
+                </td>
+                <td className="py-2 text-center font-mono">{p.minutes}'</td>
+                <td className="py-2 text-right font-mono font-bold text-amber-400">{p.points}</td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
