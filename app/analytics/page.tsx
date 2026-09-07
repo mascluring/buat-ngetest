@@ -22,13 +22,22 @@ import {
   Radar,
   Search,
   Filter,
+  Swords,
+  ArrowRightLeft,
+  UserCheck,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import ScoreTrendChart from './ScoreTrendChart';
 import type { LeaguePerformanceInsightsResponse } from '@/app/api/league-insights/route';
 import {
   getLeagueOwnershipSummary,
+  calculateSquadOverlap,
+  calculateLeagueOverlapMatrix,
   type LeagueOwnershipSummary,
   type PlayerOwnershipStats,
+  type ManagerWithPicks,
+  type SquadOverlapResult,
 } from '@/lib/league-analytics';
 
 const fmt = (n: number) => new Intl.NumberFormat('id-ID').format(n);
@@ -88,6 +97,12 @@ export default function Analytics() {
   const [ownershipFilter, setOwnershipFilter] = useState<'all' | 'core' | 'differential' | 'GKP' | 'DEF' | 'MID' | 'FWD'>('all');
   const [ownershipSort, setOwnershipSort] = useState<'eo' | 'own' | 'points' | 'name'>('eo');
 
+  // V6.4 Phase 2 Head-to-Head Squad Overlap state
+  const [managersWithPicks, setManagersWithPicks] = useState<ManagerWithPicks[]>([]);
+  const [selectedManagerAId, setSelectedManagerAId] = useState<number | string | ''>('');
+  const [selectedManagerBId, setSelectedManagerBId] = useState<number | string | ''>('');
+  const [showMatrix, setShowMatrix] = useState(false);
+
   const loadAnalytics = async () => {
     setLoading(true);
     setError('');
@@ -126,15 +141,26 @@ export default function Analytics() {
       const r = await fetch('/api/league-picks', { cache: 'no-store' });
       const json = await r.json().catch(() => null);
       if (r.ok && json?.details) {
-        const managers = Object.values(json.details).map((d: any) => ({
+        const rawManagers: ManagerWithPicks[] = Object.values(json.details).map((d: any) => ({
           entry: d.entry,
+          name: d.player_name || `Manager #${d.entry}`,
+          teamName: d.entry_name || '',
+          rank: typeof d.rank === 'number' ? d.rank : 999,
           picks: d.picksList || [],
-        }));
-        const summary = getLeagueOwnershipSummary(managers);
+        })).sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999));
+
+        setManagersWithPicks(rawManagers);
+        if (rawManagers.length >= 2) {
+          setSelectedManagerAId((prev) => (prev !== '' ? prev : rawManagers[0].entry));
+          setSelectedManagerBId((prev) => (prev !== '' ? prev : rawManagers[1].entry));
+        }
+
+        const summary = getLeagueOwnershipSummary(rawManagers);
         setOwnershipSummary(summary);
       }
     } catch {
       setOwnershipSummary(null);
+      setManagersWithPicks([]);
     } finally {
       setOwnershipLoading(false);
     }
@@ -147,6 +173,24 @@ export default function Analytics() {
   }, []);
 
   const perf = insightsData?.performanceInsights;
+
+  const managerA = useMemo(() => {
+    return managersWithPicks.find((m) => String(m.entry) === String(selectedManagerAId)) || null;
+  }, [managersWithPicks, selectedManagerAId]);
+
+  const managerB = useMemo(() => {
+    return managersWithPicks.find((m) => String(m.entry) === String(selectedManagerBId)) || null;
+  }, [managersWithPicks, selectedManagerBId]);
+
+  const overlapResult: SquadOverlapResult | null = useMemo(() => {
+    if (!managerA || !managerB) return null;
+    return calculateSquadOverlap(managerA, managerB);
+  }, [managerA, managerB]);
+
+  const leagueMatrixData = useMemo(() => {
+    if (managersWithPicks.length < 2) return null;
+    return calculateLeagueOverlapMatrix(managersWithPicks);
+  }, [managersWithPicks]);
 
   const filteredPlayers = useMemo(() => {
     if (!ownershipSummary?.players) return [];
@@ -966,6 +1010,561 @@ export default function Analytics() {
                   Core: &gt;60% • Differential: &lt;15%
                 </div>
               </div>
+            </div>
+          )}
+        </section>
+
+        {/* V6.4 PHASE 2: HEAD-TO-HEAD SQUAD OVERLAP & RIVAL SIMILARITY MATRIX */}
+        <section className="card feature-card mb-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+            <div>
+              <div className="section-kicker flex items-center gap-1.5">
+                <Swords size={13} className="text-amber-400" />
+                <span>V6.4 RIVAL ANALYSIS</span>
+              </div>
+              <h2 className="text-xl md:text-2xl font-black text-white">
+                Head-to-Head Squad Overlap
+              </h2>
+              <p className="text-slate-400 text-sm mt-1">
+                Compare squad similarity across Era Super League managers.
+              </p>
+            </div>
+            {managersWithPicks.length > 0 && (
+              <div className="text-xs bg-slate-900 border border-slate-700/80 px-3 py-1.5 rounded-full text-slate-300 font-medium flex items-center gap-2">
+                <UserCheck size={13} className="text-emerald-400" />
+                <span>{managersWithPicks.length} Manajer Siap Dibandingkan</span>
+              </div>
+            )}
+          </div>
+
+          {ownershipLoading && managersWithPicks.length === 0 ? (
+            <div className="p-8 text-center text-slate-400 flex items-center justify-center gap-2">
+              <RefreshCw size={16} className="animate-spin text-amber-400" />
+              <span>Memuat data squad manajer Era Super League…</span>
+            </div>
+          ) : managersWithPicks.length < 2 ? (
+            <div className="p-6 text-center text-slate-500 italic">
+              Data squad manajer belum tersedia untuk perbandingan head-to-head.
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* MANAGER SELECTOR */}
+              <div className="bg-slate-900/90 border border-slate-800 p-4 rounded-xl">
+                <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-center gap-3">
+                  {/* Selector Manager A */}
+                  <div>
+                    <label className="block text-[11px] font-bold tracking-wider text-cyan-400 uppercase mb-1.5">
+                      Manager A
+                    </label>
+                    <select
+                      value={selectedManagerAId}
+                      onChange={(e) => setSelectedManagerAId(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 font-medium focus:outline-none focus:border-cyan-400"
+                    >
+                      {managersWithPicks.map((m) => (
+                        <option key={`a-${m.entry}`} value={m.entry}>
+                          #{m.rank ?? '—'} {m.name} ({m.teamName || 'Team'})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Swap Button */}
+                  <div className="flex justify-center pt-2 md:pt-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const temp = selectedManagerAId;
+                        setSelectedManagerAId(selectedManagerBId);
+                        setSelectedManagerBId(temp);
+                      }}
+                      title="Tukar posisi Manager A dan Manager B"
+                      className="p-2.5 rounded-full bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 hover:border-amber-400/60 transition-all flex items-center justify-center shadow"
+                    >
+                      <ArrowRightLeft size={16} />
+                    </button>
+                  </div>
+
+                  {/* Selector Manager B */}
+                  <div>
+                    <label className="block text-[11px] font-bold tracking-wider text-rose-400 uppercase mb-1.5">
+                      Manager B
+                    </label>
+                    <select
+                      value={selectedManagerBId}
+                      onChange={(e) => setSelectedManagerBId(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 font-medium focus:outline-none focus:border-rose-400"
+                    >
+                      {managersWithPicks.map((m) => (
+                        <option
+                          key={`b-${m.entry}`}
+                          value={m.entry}
+                          disabled={String(m.entry) === String(selectedManagerAId)}
+                        >
+                          #{m.rank ?? '—'} {m.name} ({m.teamName || 'Team'}) {String(m.entry) === String(selectedManagerAId) ? '— (Terpilih di A)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* OVERLAP SUMMARY & NARRATIVE */}
+              {overlapResult && (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  {/* OVERLAP CARD */}
+                  <div className="bg-slate-900/80 border border-slate-800 p-5 rounded-xl flex flex-col justify-between">
+                    <div>
+                      <div className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
+                        Squad Overlap
+                      </div>
+                      <div className="flex items-baseline gap-3 my-2">
+                        <span className="text-3xl md:text-4xl font-black text-white font-mono">
+                          {overlapResult.overlapCount} / {Math.min(overlapResult.squadASize, overlapResult.squadBSize) || 15}
+                        </span>
+                        <span
+                          className={`text-sm font-black px-2.5 py-0.5 rounded-full font-mono border ${
+                            overlapResult.overlapPercentage >= 80
+                              ? 'bg-emerald-950 text-emerald-300 border-emerald-500/50'
+                              : overlapResult.overlapPercentage >= 60
+                              ? 'bg-cyan-950 text-cyan-300 border-cyan-500/50'
+                              : overlapResult.overlapPercentage >= 40
+                              ? 'bg-amber-950 text-amber-300 border-amber-500/50'
+                              : 'bg-rose-950 text-rose-300 border-rose-500/50'
+                          }`}
+                        >
+                          {overlapResult.overlapPercentage}%
+                        </span>
+                      </div>
+                      <div className="text-xs text-slate-400">Common Players</div>
+
+                      {/* Visual Progress Bar */}
+                      <div className="w-full bg-slate-950 h-2.5 rounded-full overflow-hidden border border-slate-800 mt-3 mb-2">
+                        <div
+                          className={`h-full transition-all duration-500 ${
+                            overlapResult.overlapPercentage >= 80
+                              ? 'bg-emerald-400'
+                              : overlapResult.overlapPercentage >= 60
+                              ? 'bg-cyan-400'
+                              : overlapResult.overlapPercentage >= 40
+                              ? 'bg-amber-400'
+                              : 'bg-rose-400'
+                          }`}
+                          style={{ width: `${Math.min(100, Math.max(0, overlapResult.overlapPercentage))}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-800/80 grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <span className="text-slate-400 block truncate">Unik {overlapResult.managerAName}:</span>
+                        <strong className="text-cyan-300 font-mono text-sm">{overlapResult.uniqueToAPlayers.length} pemain</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block truncate">Unik {overlapResult.managerBName}:</span>
+                        <strong className="text-rose-300 font-mono text-sm">{overlapResult.uniqueToBPlayers.length} pemain</strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* RIVAL INSIGHT NARRATIVE */}
+                  <div className="lg:col-span-2 bg-gradient-to-br from-slate-900/90 to-slate-950 border border-slate-800 p-5 rounded-xl flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-400 mb-2">
+                        <Sparkles size={14} />
+                        <span>Rival Insight</span>
+                      </div>
+                      <h3 className="text-lg font-bold text-white mb-2">
+                        {overlapResult.managerAName} vs {overlapResult.managerBName}
+                      </h3>
+                      <p className="text-sm text-slate-300 leading-relaxed bg-slate-950/60 p-3.5 rounded-lg border border-slate-800/80">
+                        {overlapResult.narrative}
+                      </p>
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
+                      <span>
+                        Basis: <strong className="text-slate-300">Set-Intersection</strong> berdasar <code>playerId</code> resmi FPL.
+                      </span>
+                      <span className="text-[11px] text-slate-500">
+                        Denominator: min({overlapResult.squadASize}, {overlapResult.squadBSize}) squad
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* COMMON & UNIQUE PLAYERS GRID */}
+              {overlapResult && (
+                <div className="space-y-4">
+                  {/* COMMON PLAYERS PANEL */}
+                  <div className="bg-slate-900/70 border border-slate-800 rounded-xl p-4">
+                    <div className="flex items-center justify-between gap-2 mb-3 pb-2 border-b border-slate-800">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                        <h4 className="text-sm font-bold text-white uppercase tracking-wider">
+                          Common Players ({overlapResult.commonPlayers.length})
+                        </h4>
+                      </div>
+                      <span className="text-xs text-slate-400">Dimiliki bersama oleh kedua manajer</span>
+                    </div>
+
+                    {overlapResult.commonPlayers.length === 0 ? (
+                      <div className="text-xs text-slate-500 italic p-3 text-center">
+                        Tidak ada pemain yang sama antara kedua squad (0% overlap).
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                        {overlapResult.commonPlayers.map((p) => {
+                          const posBg =
+                            p.position === 'GKP'
+                              ? 'bg-amber-950/80 text-amber-300 border-amber-500/40'
+                              : p.position === 'DEF'
+                              ? 'bg-blue-950/80 text-blue-300 border-blue-500/40'
+                              : p.position === 'MID'
+                              ? 'bg-emerald-950/80 text-emerald-300 border-emerald-500/40'
+                              : 'bg-rose-950/80 text-rose-300 border-rose-500/40';
+
+                          return (
+                            <div
+                              key={`common-${p.id}`}
+                              className="bg-slate-950/70 border border-slate-800/80 hover:border-slate-700 px-3 py-2 rounded-lg flex items-center justify-between gap-2 transition-colors"
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded border ${posBg}`}>
+                                  {p.position}
+                                </span>
+                                <div className="truncate">
+                                  <span className="text-xs font-bold text-slate-200 truncate block">
+                                    {p.name}
+                                  </span>
+                                  <span className="text-[10px] text-slate-400">{p.team}</span>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                {p.isCaptainA && (
+                                  <span className="text-[9px] font-black px-1 rounded bg-cyan-950 text-cyan-300 border border-cyan-400/60" title={`Kapten Manager A (${overlapResult.managerAName})`}>
+                                    C(A)
+                                  </span>
+                                )}
+                                {p.isCaptainB && (
+                                  <span className="text-[9px] font-black px-1 rounded bg-rose-950 text-rose-300 border border-rose-400/60" title={`Kapten Manager B (${overlapResult.managerBName})`}>
+                                    C(B)
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* UNIQUE PLAYERS COMPARISON (SIDE BY SIDE) */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* ONLY MANAGER A */}
+                    <div className="bg-slate-900/70 border border-cyan-900/40 rounded-xl p-4">
+                      <div className="flex items-center justify-between gap-2 mb-3 pb-2 border-b border-slate-800">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-cyan-400" />
+                          <h4 className="text-sm font-bold text-cyan-200 uppercase tracking-wider truncate">
+                            Only {overlapResult.managerAName} ({overlapResult.uniqueToAPlayers.length})
+                          </h4>
+                        </div>
+                        <span className="text-[11px] text-cyan-400/80 font-mono font-bold">Manager A</span>
+                      </div>
+
+                      {overlapResult.uniqueToAPlayers.length === 0 ? (
+                        <div className="text-xs text-slate-500 italic p-4 text-center">
+                          Tidak ada pemain unik (squad 100% identik).
+                        </div>
+                      ) : (
+                        <div className="space-y-1.5">
+                          {overlapResult.uniqueToAPlayers.map((p) => {
+                            const posBg =
+                              p.position === 'GKP'
+                                ? 'bg-amber-950/80 text-amber-300 border-amber-500/40'
+                                : p.position === 'DEF'
+                                ? 'bg-blue-950/80 text-blue-300 border-blue-500/40'
+                                : p.position === 'MID'
+                                ? 'bg-emerald-950/80 text-emerald-300 border-emerald-500/40'
+                                : 'bg-rose-950/80 text-rose-300 border-rose-500/40';
+
+                            return (
+                              <div
+                                key={`uniq-a-${p.id}`}
+                                className="bg-slate-950/70 border border-slate-800/80 hover:border-cyan-800/60 px-3 py-2 rounded-lg flex items-center justify-between gap-2 transition-colors"
+                              >
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className={`text-[9px] font-black px-1.5 py-0.5 rounded border ${posBg}`}>
+                                    {p.position}
+                                  </span>
+                                  <span className="text-xs font-bold text-slate-200 truncate">
+                                    {p.name}
+                                  </span>
+                                  <span className="text-[10px] text-slate-400">{p.team}</span>
+                                </div>
+                                {p.isCaptain && (
+                                  <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-400 text-black">
+                                    CAPTAIN
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* ONLY MANAGER B */}
+                    <div className="bg-slate-900/70 border border-rose-900/40 rounded-xl p-4">
+                      <div className="flex items-center justify-between gap-2 mb-3 pb-2 border-b border-slate-800">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-rose-400" />
+                          <h4 className="text-sm font-bold text-rose-200 uppercase tracking-wider truncate">
+                            Only {overlapResult.managerBName} ({overlapResult.uniqueToBPlayers.length})
+                          </h4>
+                        </div>
+                        <span className="text-[11px] text-rose-400/80 font-mono font-bold">Manager B</span>
+                      </div>
+
+                      {overlapResult.uniqueToBPlayers.length === 0 ? (
+                        <div className="text-xs text-slate-500 italic p-4 text-center">
+                          Tidak ada pemain unik (squad 100% identik).
+                        </div>
+                      ) : (
+                        <div className="space-y-1.5">
+                          {overlapResult.uniqueToBPlayers.map((p) => {
+                            const posBg =
+                              p.position === 'GKP'
+                                ? 'bg-amber-950/80 text-amber-300 border-amber-500/40'
+                                : p.position === 'DEF'
+                                ? 'bg-blue-950/80 text-blue-300 border-blue-500/40'
+                                : p.position === 'MID'
+                                ? 'bg-emerald-950/80 text-emerald-300 border-emerald-500/40'
+                                : 'bg-rose-950/80 text-rose-300 border-rose-500/40';
+
+                            return (
+                              <div
+                                key={`uniq-b-${p.id}`}
+                                className="bg-slate-950/70 border border-slate-800/80 hover:border-rose-800/60 px-3 py-2 rounded-lg flex items-center justify-between gap-2 transition-colors"
+                              >
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className={`text-[9px] font-black px-1.5 py-0.5 rounded border ${posBg}`}>
+                                    {p.position}
+                                  </span>
+                                  <span className="text-xs font-bold text-slate-200 truncate">
+                                    {p.name}
+                                  </span>
+                                  <span className="text-[10px] text-slate-400">{p.team}</span>
+                                </div>
+                                {p.isCaptain && (
+                                  <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-400 text-black">
+                                    CAPTAIN
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* LEAGUE-WIDE RIVAL MATRIX & LEAGUE INSIGHTS (SECTIONS 10 & 11) */}
+              {leagueMatrixData && (
+                <div className="pt-2">
+                  {/* 3 LEAGUE INSIGHTS CARDS */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+                    {/* Most Similar Rival */}
+                    {leagueMatrixData.insights.mostSimilarPair && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!leagueMatrixData.insights.mostSimilarPair) return;
+                          setSelectedManagerAId(leagueMatrixData.insights.mostSimilarPair.managerA.id);
+                          setSelectedManagerBId(leagueMatrixData.insights.mostSimilarPair.managerB.id);
+                        }}
+                        className="text-left bg-slate-900/80 hover:bg-slate-900 border border-slate-800 hover:border-emerald-500/50 p-3.5 rounded-xl transition-all group"
+                      >
+                        <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
+                          <span className="font-bold text-emerald-400 uppercase tracking-wider text-[10px]">
+                            Most Similar Rival
+                          </span>
+                          <span className="font-mono text-emerald-300 font-bold bg-emerald-950 px-1.5 py-0.2 rounded border border-emerald-500/30">
+                            {leagueMatrixData.insights.mostSimilarPair.overlapPercentage}% ({leagueMatrixData.insights.mostSimilarPair.overlapCount}/15)
+                          </span>
+                        </div>
+                        <div className="text-sm font-bold text-white truncate group-hover:text-emerald-300 transition-colors">
+                          {leagueMatrixData.insights.mostSimilarPair.managerA.name}
+                        </div>
+                        <div className="text-xs text-slate-400 truncate">
+                          vs {leagueMatrixData.insights.mostSimilarPair.managerB.name}
+                        </div>
+                        <div className="text-[10px] text-slate-500 mt-1">Klik untuk bandingkan pair ini ↗</div>
+                      </button>
+                    )}
+
+                    {/* Most Different Rival */}
+                    {leagueMatrixData.insights.mostDifferentPair && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!leagueMatrixData.insights.mostDifferentPair) return;
+                          setSelectedManagerAId(leagueMatrixData.insights.mostDifferentPair.managerA.id);
+                          setSelectedManagerBId(leagueMatrixData.insights.mostDifferentPair.managerB.id);
+                        }}
+                        className="text-left bg-slate-900/80 hover:bg-slate-900 border border-slate-800 hover:border-rose-500/50 p-3.5 rounded-xl transition-all group"
+                      >
+                        <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
+                          <span className="font-bold text-rose-400 uppercase tracking-wider text-[10px]">
+                            Most Different Rival
+                          </span>
+                          <span className="font-mono text-rose-300 font-bold bg-rose-950 px-1.5 py-0.2 rounded border border-rose-500/30">
+                            {leagueMatrixData.insights.mostDifferentPair.overlapPercentage}% ({leagueMatrixData.insights.mostDifferentPair.overlapCount}/15)
+                          </span>
+                        </div>
+                        <div className="text-sm font-bold text-white truncate group-hover:text-rose-300 transition-colors">
+                          {leagueMatrixData.insights.mostDifferentPair.managerA.name}
+                        </div>
+                        <div className="text-xs text-slate-400 truncate">
+                          vs {leagueMatrixData.insights.mostDifferentPair.managerB.name}
+                        </div>
+                        <div className="text-[10px] text-slate-500 mt-1">Klik untuk bandingkan pair ini ↗</div>
+                      </button>
+                    )}
+
+                    {/* Most Unique Manager */}
+                    {leagueMatrixData.insights.mostUniqueManager && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!leagueMatrixData.insights.mostUniqueManager) return;
+                          setSelectedManagerAId(leagueMatrixData.insights.mostUniqueManager.id);
+                        }}
+                        className="text-left bg-slate-900/80 hover:bg-slate-900 border border-slate-800 hover:border-amber-500/50 p-3.5 rounded-xl transition-all group"
+                      >
+                        <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
+                          <span className="font-bold text-amber-400 uppercase tracking-wider text-[10px]">
+                            Most Unique Manager
+                          </span>
+                          <span className="font-mono text-amber-300 font-bold bg-amber-950 px-1.5 py-0.2 rounded border border-amber-500/30">
+                            Rata² {leagueMatrixData.insights.mostUniqueManager.averageOverlap}%
+                          </span>
+                        </div>
+                        <div className="text-sm font-bold text-white truncate group-hover:text-amber-300 transition-colors">
+                          {leagueMatrixData.insights.mostUniqueManager.name}
+                        </div>
+                        <div className="text-xs text-slate-400 truncate">
+                          {leagueMatrixData.insights.mostUniqueManager.team || 'Era Super League'}
+                        </div>
+                        <div className="text-[10px] text-slate-500 mt-1">Paling sedikit memiliki squad overlap di liga</div>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* SQUAD SIMILARITY MATRIX TABLE (COLLAPSIBLE) */}
+                  <div className="bg-slate-900/80 border border-slate-800 rounded-xl overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setShowMatrix((v) => !v)}
+                      className="w-full p-4 flex items-center justify-between text-left hover:bg-slate-800/50 transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-white">
+                          Squad Similarity Matrix ({managersWithPicks.length} × {managersWithPicks.length})
+                        </span>
+                        <span className="text-xs text-slate-400 hidden sm:inline">
+                          • Matriks simetris perbandingan antar semua manajer
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-cyan-400 font-medium">
+                        <span>{showMatrix ? 'Sembunyikan' : 'Buka Matriks'}</span>
+                        {showMatrix ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                      </div>
+                    </button>
+
+                    {showMatrix && (
+                      <div className="p-4 border-t border-slate-800 space-y-3">
+                        <p className="text-xs text-slate-400">
+                          Matriks dihitung secara in-memory (zero extra network calls). Klik nilai sel untuk memuat perbandingan kedua manajer di atas.
+                        </p>
+                        <div className="overflow-x-auto max-h-[480px]">
+                          <table className="w-full text-xs text-left border-collapse">
+                            <thead className="sticky top-0 bg-slate-950 z-10 border-b border-slate-800">
+                              <tr>
+                                <th className="p-2 text-slate-400 font-bold sticky left-0 bg-slate-950 z-20 min-w-[140px]">
+                                  Manager
+                                </th>
+                                {leagueMatrixData.matrix.map((row) => (
+                                  <th
+                                    key={`col-${row.managerId}`}
+                                    className="p-2 text-center text-slate-300 font-mono font-bold min-w-[56px]"
+                                    title={`${row.managerName} (${row.teamName})`}
+                                  >
+                                    #{row.rank ?? '—'}
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-800/60">
+                              {leagueMatrixData.matrix.map((row) => (
+                                <tr key={`row-${row.managerId}`} className="hover:bg-slate-800/30">
+                                  <td
+                                    className="p-2 font-medium text-slate-200 sticky left-0 bg-slate-900/95 z-10 border-r border-slate-800 truncate max-w-[160px]"
+                                    title={`${row.managerName} (${row.teamName})`}
+                                  >
+                                    <span className="text-slate-400 mr-1 font-mono">#{row.rank ?? '—'}</span>
+                                    {row.managerName}
+                                  </td>
+                                  {row.overlaps.map((cell) => {
+                                    const isSelf = String(cell.targetManagerId) === String(row.managerId);
+                                    if (isSelf) {
+                                      return (
+                                        <td key={`c-${row.managerId}-${cell.targetManagerId}`} className="p-2 text-center text-slate-600 font-mono">
+                                          —
+                                        </td>
+                                      );
+                                    }
+
+                                    const pct = cell.overlapPercentage;
+                                    const heatClass =
+                                      pct >= 80
+                                        ? 'text-emerald-300 bg-emerald-950/40 hover:bg-emerald-950 font-black'
+                                        : pct >= 60
+                                        ? 'text-cyan-300 bg-cyan-950/30 hover:bg-cyan-950 font-bold'
+                                        : pct >= 40
+                                        ? 'text-amber-300 bg-amber-950/20 hover:bg-amber-950'
+                                        : 'text-slate-400 hover:bg-slate-800/50';
+
+                                    return (
+                                      <td key={`c-${row.managerId}-${cell.targetManagerId}`} className="p-1 text-center">
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setSelectedManagerAId(row.managerId);
+                                            setSelectedManagerBId(cell.targetManagerId);
+                                          }}
+                                          title={`Bandingkan ${row.managerName} vs Target: ${cell.overlapPercentage}% (${cell.overlapCount} pemain)`}
+                                          className={`w-full py-1 rounded text-[11px] font-mono transition-colors ${heatClass}`}
+                                        >
+                                          {pct}%
+                                        </button>
+                                      </td>
+                                    );
+                                  })}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </section>

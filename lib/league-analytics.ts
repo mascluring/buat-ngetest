@@ -298,3 +298,423 @@ export function getPlayerOwnershipMap(players: PlayerOwnershipStats[]): Map<numb
   }
   return map;
 }
+
+/**
+ * ============================================================================
+ * V6.4 PHASE 2: HEAD-TO-HEAD SQUAD OVERLAP & RIVAL SIMILARITY MATRIX
+ * ============================================================================
+ */
+
+export interface SquadOverlapPlayerInfo {
+  id: number;
+  name: string;
+  fullName?: string;
+  team: string;
+  position: string;
+  positionNumber?: number; // 1-15 (1-11 starter, 12-15 bench)
+  isStarter?: boolean;
+  isCaptain?: boolean;
+  isVice?: boolean;
+  isCaptainA?: boolean;
+  isCaptainB?: boolean;
+  multiplier?: number;
+}
+
+export interface ManagerWithPicks extends ManagerPicksInput {
+  name?: string;
+  teamName?: string;
+  rank?: number;
+}
+
+export interface SquadOverlapResult {
+  managerAId: number | string;
+  managerBId: number | string;
+  managerAName?: string;
+  managerBName?: string;
+  managerATeam?: string;
+  managerBTeam?: string;
+  overlapCount: number;
+  overlapPercentage: number;
+  squadASize: number;
+  squadBSize: number;
+  commonPlayerIds: number[];
+  uniqueToAPlayerIds: number[];
+  uniqueToBPlayerIds: number[];
+  commonPlayers: SquadOverlapPlayerInfo[];
+  uniqueToAPlayers: SquadOverlapPlayerInfo[];
+  uniqueToBPlayers: SquadOverlapPlayerInfo[];
+  narrative: string;
+}
+
+export interface LeagueOverlapMatrixEntry {
+  managerId: number | string;
+  managerName: string;
+  teamName: string;
+  rank?: number;
+  overlaps: {
+    targetManagerId: number | string;
+    overlapPercentage: number;
+    overlapCount: number;
+  }[];
+  averageOverlap: number;
+}
+
+export interface LeagueOverlapInsights {
+  mostSimilarPair: {
+    managerA: { id: number | string; name: string; team: string };
+    managerB: { id: number | string; name: string; team: string };
+    overlapPercentage: number;
+    overlapCount: number;
+  } | null;
+  mostDifferentPair: {
+    managerA: { id: number | string; name: string; team: string };
+    managerB: { id: number | string; name: string; team: string };
+    overlapPercentage: number;
+    overlapCount: number;
+  } | null;
+  mostUniqueManager: {
+    id: number | string;
+    name: string;
+    team: string;
+    averageOverlap: number;
+  } | null;
+}
+
+/**
+ * Returns deterministic rival insight narrative in Indonesian based on squad overlap percentage.
+ */
+export function getOverlapNarrative(overlapPercentage: number): string {
+  if (overlapPercentage >= 80) {
+    return 'Squad sangat mirip — duel kemungkinan ditentukan oleh pemain diferensial.';
+  }
+  if (overlapPercentage >= 60) {
+    return 'Mayoritas squad sama, tetapi beberapa pemain diferensial dapat menentukan hasil.';
+  }
+  if (overlapPercentage >= 40) {
+    return 'Overlap sedang — terdapat cukup banyak pemain berbeda di kedua squad.';
+  }
+  return 'Squad sangat berbeda — ini merupakan duel diferensial yang kuat.';
+}
+
+/**
+ * Helper to extract deduplicated player information from a manager's picks.
+ */
+function extractPlayerMap(picks: ManagerPickItem[]): Map<number, SquadOverlapPlayerInfo> {
+  const map = new Map<number, SquadOverlapPlayerInfo>();
+  if (!Array.isArray(picks)) return map;
+
+  for (const p of picks) {
+    if (!p || typeof p.id !== 'number' || p.id <= 0) continue;
+    if (map.has(p.id)) continue; // Deduplicate duplicate input
+
+    const pos = p.positionName || (
+      p.elementType === 1 ? 'GKP' :
+      p.elementType === 2 ? 'DEF' :
+      p.elementType === 3 ? 'MID' :
+      p.elementType === 4 ? 'FWD' : 'UNK'
+    );
+    const teamStr = p.teamShortName || p.team || p.teamName || '—';
+    const nameStr = p.name || p.fullName || `Player #${p.id}`;
+
+    map.set(p.id, {
+      id: p.id,
+      name: nameStr,
+      fullName: p.fullName || nameStr,
+      team: teamStr,
+      position: pos,
+      positionNumber: p.position,
+      isStarter: typeof p.position === 'number' ? p.position <= 11 : true,
+      isCaptain: !!p.isCaptain,
+      isVice: !!p.isVice,
+      multiplier: p.multiplier ?? 1,
+    });
+  }
+  return map;
+}
+
+const positionOrder: Record<string, number> = { GKP: 1, DEF: 2, MID: 3, FWD: 4, UNK: 5 };
+function sortPlayersByPosition(a: SquadOverlapPlayerInfo, b: SquadOverlapPlayerInfo): number {
+  const posA = positionOrder[a.position] || 99;
+  const posB = positionOrder[b.position] || 99;
+  if (posA !== posB) return posA - posB;
+  return a.name.localeCompare(b.name);
+}
+
+/**
+ * Calculates Head-to-Head Squad Overlap between Manager A and Manager B.
+ *
+ * Rules:
+ * - Common players = intersection(squadA, squadB)
+ * - Denominator = min(squadA.length, squadB.length) to prevent skewing on incomplete data.
+ * - Overlap % = (common.length / denominator) * 100
+ * - If denominator === 0: overlap % = 0 (no NaN/Infinity)
+ * - Deduplicates player IDs using Set
+ */
+export function calculateSquadOverlap(
+  managerA: ManagerWithPicks,
+  managerB: ManagerWithPicks
+): SquadOverlapResult {
+  const managerAId = managerA?.entry ?? 'A';
+  const managerBId = managerB?.entry ?? 'B';
+
+  const mapA = extractPlayerMap(managerA?.picks || []);
+  const mapB = extractPlayerMap(managerB?.picks || []);
+
+  const squadASet = new Set(mapA.keys());
+  const squadBSet = new Set(mapB.keys());
+
+  const squadASize = squadASet.size;
+  const squadBSize = squadBSet.size;
+
+  // Handle same manager comparison
+  if (managerAId === managerBId && squadASize > 0) {
+    const allIds = Array.from(squadASet);
+    const allPlayers = allIds.map((id) => mapA.get(id)!).sort(sortPlayersByPosition);
+    return {
+      managerAId,
+      managerBId,
+      managerAName: managerA?.name,
+      managerBName: managerB?.name,
+      managerATeam: managerA?.teamName,
+      managerBTeam: managerB?.teamName,
+      overlapCount: squadASize,
+      overlapPercentage: 100,
+      squadASize,
+      squadBSize,
+      commonPlayerIds: allIds,
+      uniqueToAPlayerIds: [],
+      uniqueToBPlayerIds: [],
+      commonPlayers: allPlayers,
+      uniqueToAPlayers: [],
+      uniqueToBPlayers: [],
+      narrative: getOverlapNarrative(100),
+    };
+  }
+
+  // Handle empty squad edge cases
+  if (squadASize === 0 || squadBSize === 0) {
+    return {
+      managerAId,
+      managerBId,
+      managerAName: managerA?.name,
+      managerBName: managerB?.name,
+      managerATeam: managerA?.teamName,
+      managerBTeam: managerB?.teamName,
+      overlapCount: 0,
+      overlapPercentage: 0,
+      squadASize,
+      squadBSize,
+      commonPlayerIds: [],
+      uniqueToAPlayerIds: Array.from(squadASet),
+      uniqueToBPlayerIds: Array.from(squadBSet),
+      commonPlayers: [],
+      uniqueToAPlayers: Array.from(mapA.values()).sort(sortPlayersByPosition),
+      uniqueToBPlayers: Array.from(mapB.values()).sort(sortPlayersByPosition),
+      narrative: 'Squad data unavailable',
+    };
+  }
+
+  const commonPlayerIds: number[] = [];
+  const uniqueToAPlayerIds: number[] = [];
+  const uniqueToBPlayerIds: number[] = [];
+
+  for (const id of squadASet) {
+    if (squadBSet.has(id)) {
+      commonPlayerIds.push(id);
+    } else {
+      uniqueToAPlayerIds.push(id);
+    }
+  }
+
+  for (const id of squadBSet) {
+    if (!squadASet.has(id)) {
+      uniqueToBPlayerIds.push(id);
+    }
+  }
+
+  const overlapCount = commonPlayerIds.length;
+  const denominator = Math.min(squadASize, squadBSize);
+  const overlapPercentage = denominator > 0
+    ? round2((overlapCount / denominator) * 100)
+    : 0;
+
+  const commonPlayers = commonPlayerIds
+    .map((id) => {
+      const pA = mapA.get(id)!;
+      const pB = mapB.get(id);
+      return {
+        ...pA,
+        isCaptainA: pA.isCaptain,
+        isCaptainB: pB?.isCaptain,
+      };
+    })
+    .sort(sortPlayersByPosition);
+
+  const uniqueToAPlayers = uniqueToAPlayerIds
+    .map((id) => mapA.get(id)!)
+    .sort(sortPlayersByPosition);
+
+  const uniqueToBPlayers = uniqueToBPlayerIds
+    .map((id) => mapB.get(id)!)
+    .sort(sortPlayersByPosition);
+
+  const narrative = getOverlapNarrative(overlapPercentage);
+
+  return {
+    managerAId,
+    managerBId,
+    managerAName: managerA?.name,
+    managerBName: managerB?.name,
+    managerATeam: managerA?.teamName,
+    managerBTeam: managerB?.teamName,
+    overlapCount,
+    overlapPercentage,
+    squadASize,
+    squadBSize,
+    commonPlayerIds,
+    uniqueToAPlayerIds,
+    uniqueToBPlayerIds,
+    commonPlayers,
+    uniqueToAPlayers,
+    uniqueToBPlayers,
+    narrative,
+  };
+}
+
+/**
+ * Calculates a complete League-Wide Overlap Matrix and summary insights in pure memory.
+ * No additional network calls required.
+ */
+export function calculateLeagueOverlapMatrix(
+  managers: ManagerWithPicks[]
+): {
+  matrix: LeagueOverlapMatrixEntry[];
+  insights: LeagueOverlapInsights;
+} {
+  if (!Array.isArray(managers) || managers.length === 0) {
+    return {
+      matrix: [],
+      insights: {
+        mostSimilarPair: null,
+        mostDifferentPair: null,
+        mostUniqueManager: null,
+      },
+    };
+  }
+
+  // Precompute sets and basic info
+  const precomputed = managers.map((m) => {
+    const rawPicks = Array.isArray(m.picks) ? m.picks : [];
+    const set = new Set<number>();
+    for (const p of rawPicks) {
+      if (p && typeof p.id === 'number' && p.id > 0) {
+        set.add(p.id);
+      }
+    }
+    return {
+      id: m.entry,
+      name: m.name || `Manager #${m.entry}`,
+      team: m.teamName || '',
+      rank: m.rank,
+      set,
+    };
+  });
+
+  const matrix: LeagueOverlapMatrixEntry[] = [];
+  let maxOverlap = -1;
+  let minOverlap = 999;
+  let mostSimilarPair: LeagueOverlapInsights['mostSimilarPair'] = null;
+  let mostDifferentPair: LeagueOverlapInsights['mostDifferentPair'] = null;
+
+  for (let i = 0; i < precomputed.length; i++) {
+    const mgrA = precomputed[i];
+    const overlaps: LeagueOverlapMatrixEntry['overlaps'] = [];
+    let overlapSum = 0;
+    let comparisons = 0;
+
+    for (let j = 0; j < precomputed.length; j++) {
+      const mgrB = precomputed[j];
+      if (i === j) {
+        overlaps.push({
+          targetManagerId: mgrB.id,
+          overlapPercentage: 100,
+          overlapCount: mgrA.set.size,
+        });
+        continue;
+      }
+
+      // Compute intersection
+      let common = 0;
+      for (const id of mgrA.set) {
+        if (mgrB.set.has(id)) common++;
+      }
+
+      const denom = Math.min(mgrA.set.size, mgrB.set.size);
+      const pct = denom > 0 ? round2((common / denom) * 100) : 0;
+
+      overlaps.push({
+        targetManagerId: mgrB.id,
+        overlapPercentage: pct,
+        overlapCount: common,
+      });
+
+      overlapSum += pct;
+      comparisons++;
+
+      // Track global extremes for unique pairs (i < j)
+      if (i < j && denom > 0) {
+        if (pct > maxOverlap) {
+          maxOverlap = pct;
+          mostSimilarPair = {
+            managerA: { id: mgrA.id, name: mgrA.name, team: mgrA.team },
+            managerB: { id: mgrB.id, name: mgrB.name, team: mgrB.team },
+            overlapPercentage: pct,
+            overlapCount: common,
+          };
+        }
+        if (pct < minOverlap) {
+          minOverlap = pct;
+          mostDifferentPair = {
+            managerA: { id: mgrA.id, name: mgrA.name, team: mgrA.team },
+            managerB: { id: mgrB.id, name: mgrB.name, team: mgrB.team },
+            overlapPercentage: pct,
+            overlapCount: common,
+          };
+        }
+      }
+    }
+
+    const averageOverlap = comparisons > 0 ? round2(overlapSum / comparisons) : 0;
+
+    matrix.push({
+      managerId: mgrA.id,
+      managerName: mgrA.name,
+      teamName: mgrA.team,
+      rank: mgrA.rank,
+      overlaps,
+      averageOverlap,
+    });
+  }
+
+  // Find most unique manager (lowest average overlap)
+  let mostUniqueManager: LeagueOverlapInsights['mostUniqueManager'] = null;
+  if (matrix.length > 0) {
+    const sortedByUnique = [...matrix].sort((a, b) => a.averageOverlap - b.averageOverlap);
+    const topUnique = sortedByUnique[0];
+    mostUniqueManager = {
+      id: topUnique.managerId,
+      name: topUnique.managerName,
+      team: topUnique.teamName,
+      averageOverlap: topUnique.averageOverlap,
+    };
+  }
+
+  return {
+    matrix,
+    insights: {
+      mostSimilarPair,
+      mostDifferentPair,
+      mostUniqueManager,
+    },
+  };
+}
