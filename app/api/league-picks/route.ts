@@ -23,6 +23,7 @@ export async function GET(req: Request) {
 
     const standings = league.standings?.results ?? [];
     const current = boot?.events?.find((e: any) => e.is_current)?.id ?? boot?.events?.find((e: any) => e.is_next)?.id ?? 1;
+    const currentEvent = boot?.events?.find((e: any) => e.id === current) || null;
 
     const liveData = await getLiveEvent(current).catch(() => null);
 
@@ -178,6 +179,9 @@ export async function GET(req: Request) {
 
             return {
               entry: row.entry,
+              player_name: row.player_name || '',
+              entry_name: row.entry_name || '',
+              rank: row.rank || 0,
               captainName: captainPlayer ? captainPlayer.web_name : '—',
               viceName: vicePlayer ? vicePlayer.web_name : '—',
               captainPoints,
@@ -195,10 +199,20 @@ export async function GET(req: Request) {
               totalPicks: startingPicks.length,
               totalGamesCount: startingPicks.length,
               picksList,
+              automatic_subs: (picksData.automatic_subs || []).map((sub: any) => ({
+                entry: Number(sub.entry || row.entry),
+                element_in: Number(sub.element_in),
+                element_out: Number(sub.element_out),
+                event: Number(sub.event || current),
+              })),
+              entry_history: picksData.entry_history || null,
             };
           } catch {
             return {
               entry: row.entry,
+              player_name: row.player_name || '',
+              entry_name: row.entry_name || '',
+              rank: row.rank || 0,
               captainName: '—',
               viceName: '—',
               captainPoints: 0,
@@ -216,6 +230,8 @@ export async function GET(req: Request) {
               totalPicks: 11,
               totalGamesCount: 11,
               picksList: [],
+              automatic_subs: [],
+              entry_history: null,
             };
           }
         })
@@ -234,6 +250,8 @@ export async function GET(req: Request) {
         hasNext: Boolean(league.standings?.has_next),
         page,
         current,
+        isFinished: Boolean(currentEvent?.finished),
+        dataChecked: Boolean(currentEvent?.data_checked),
         leagueId: LEAGUE_ID,
         count: standings.length,
         source: 'Fantasy Premier League API',

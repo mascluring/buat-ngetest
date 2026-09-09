@@ -70,12 +70,28 @@ export interface PerformanceInsights {
   };
 }
 
+export interface ManagerHistoricalRecord {
+  entryId: number;
+  entryName: string;
+  playerName: string;
+  currentRank: number;
+  currentTotal: number;
+  chips: Array<{ name: string; event: number }>;
+  history: Array<{
+    event: number;
+    points: number;
+    total_points: number;
+    points_on_bench: number;
+  }>;
+}
+
 export interface LeaguePerformanceInsightsResponse {
   ok: boolean;
   leagueId: number;
   leagueName: string;
   checkedAt: string;
   performanceInsights: PerformanceInsights;
+  managerHistories?: ManagerHistoricalRecord[];
   error?: string;
 }
 
@@ -243,10 +259,13 @@ async function computeLeagueInsights(leagueId: number): Promise<LeaguePerformanc
     playerName: string;
     currentRank: number;
     currentTotal: number;
+    chips: Array<{ name: string; event: number }>;
     historyCurrent: Array<{
       event: number;
       points: number;
       total_points: number;
+      points_on_bench: number;
+      event_transfers_cost: number;
     }>;
   }
 
@@ -257,6 +276,11 @@ async function computeLeagueInsights(leagueId: number): Promise<LeaguePerformanc
     if (res.status === 'fulfilled' && res.value?.history?.current) {
       const m = res.value.manager;
       const rawCurrent = res.value.history.current;
+      const chips = (res.value.history.chips || []).map((c: any) => ({
+        name: String(c.name || '').toLowerCase(),
+        event: Number(c.event || 0),
+      }));
+
       // Filter only completed valid Gameweeks
       const validHistory = rawCurrent
         .filter(
@@ -269,6 +293,8 @@ async function computeLeagueInsights(leagueId: number): Promise<LeaguePerformanc
           event: Number(h.event),
           points: Number(h.points),
           total_points: Number(h.total_points),
+          points_on_bench: Number(h.points_on_bench ?? 0),
+          event_transfers_cost: Number(h.event_transfers_cost ?? 0),
         }));
 
       successfulManagers.push({
@@ -277,6 +303,7 @@ async function computeLeagueInsights(leagueId: number): Promise<LeaguePerformanc
         playerName: m.player_name || m.entry_name,
         currentRank: m.rank,
         currentTotal: m.total ?? 0,
+        chips,
         historyCurrent: validHistory,
       });
     } else {
@@ -652,6 +679,15 @@ async function computeLeagueInsights(leagueId: number): Promise<LeaguePerformanc
         failedManagers: failedManagersCount,
       },
     },
+    managerHistories: successfulManagers.map((m) => ({
+      entryId: m.entryId,
+      entryName: m.entryName,
+      playerName: m.playerName,
+      currentRank: m.currentRank,
+      currentTotal: m.currentTotal,
+      chips: m.chips,
+      history: m.historyCurrent,
+    })),
   };
 }
 

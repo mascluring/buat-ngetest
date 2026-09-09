@@ -104,6 +104,7 @@ export default function Home(){
  const riser = analytics?.biggestRiser;
  const faller = analytics?.biggestFaller;
  const top10=(data?.standings??[]).slice(0,10);
+ const totalManagers = data?.league?.total_entries ?? data?.standings?.length ?? (data?.details ? Object.keys(data.details).length : 29);
 
  const ownershipMap = useMemo(() => {
    if (!data?.details) return new Map<number, PlayerOwnershipStats>();
@@ -277,7 +278,7 @@ export default function Home(){
    <div className="v3-note"><Sparkles size={16}/><div><b>V6.4 Interactive Pitch View, Ownership Radar &amp; Performance Insights</b><span>Formasi dapat diklik langsung untuk membuka visual pitch view lapangan dan perhitungan poin real-time.</span></div></div>
    <footer>ERA SUPER LEAGUE • V6.4 Dashboard • League ID 134820 • Data from Fantasy Premier League</footer>
   </div>
-  {selectedPlayer && <PlayerPopup player={selectedPlayer} onClose={closePlayerPopup} ownershipStat={ownershipMap.get(selectedPlayer.id)} />}
+  {selectedPlayer && <PlayerPopup player={selectedPlayer} onClose={closePlayerPopup} ownershipStat={ownershipMap.get(selectedPlayer.id)} totalManagers={totalManagers} />}
  </main>
 }
 
@@ -331,7 +332,7 @@ function PitchView({ detail, picksList, onPlayerClick, ownershipMap }: { detail?
   );
 }
 
-function PlayerPopup({ player, onClose, ownershipStat }: { player: any; onClose: () => void; ownershipStat?: PlayerOwnershipStats }) {
+function PlayerPopup({ player, onClose, ownershipStat, totalManagers }: { player: any; onClose: () => void; ownershipStat?: PlayerOwnershipStats; totalManagers?: number }) {
   const { rows, officialRaw, calculatedRaw } = getPlayerBreakdownRows(player);
   const visibleBreakdown = rows.filter(
     (item) => Number(item.points ?? 0) !== 0
@@ -381,7 +382,7 @@ function PlayerPopup({ player, onClose, ownershipStat }: { player: any; onClose:
               <h3 className="text-xl font-black text-white tracking-tight">{player.name}</h3>
               {ownershipStat && (
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5 text-xs text-slate-400">
-                  <span>Own: <strong className="text-slate-200">{ownershipStat.ownership}%</strong> ({ownershipStat.ownerCount}/29)</span>
+                  <span>Own: <strong className="text-slate-200">{ownershipStat.ownership}%</strong> ({ownershipStat.ownerCount}/{totalManagers})</span>
                   <span>•</span>
                   <span>Start: <strong className="text-slate-200">{ownershipStat.startingOwnership}%</strong></span>
                   <span>•</span>
