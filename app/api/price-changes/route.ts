@@ -4,7 +4,6 @@ import { createClient } from '@supabase/supabase-js';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-// Buat client Supabase (Gunakan Service Role jika ada untuk bypass RLS di server)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey =
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
@@ -28,14 +27,18 @@ export async function GET(request: Request) {
       .order('change_date', { ascending: false })
       .order('id', { ascending: false });
 
-    // Jika user memilih tanggal tertentu di filter
+    // JIKA USER MEMILIH TANGGAL
     if (dateFilter) {
-      query = query.or(
-        `change_date.eq.${dateFilter},change_date.gte.${dateFilter}T00:00:00,change_date.lte.${dateFilter}T23:59:59`
-      );
+      // Menggunakan rentang awal hari s/d akhir hari (00:00:00 - 23:59:59)
+      // Ini aman untuk tipe data DATE, TIMESTAMP, maupun TIMESTAMPTZ di Supabase
+      const startOfDay = `${dateFilter}T00:00:00`;
+      const endOfDay = `${dateFilter}T23:59:59`;
+
+      query = query
+        .gte('change_date', startOfDay)
+        .lte('change_date', endOfDay);
     }
-    // Jika TIDAK ADA filter (saat pertama kali dibuka):
-    // Tanpa klausa .eq(), query ini otomatis mengambil SEMUA data di tabel price_changes.
+    // Jika dateFilter kosong, query otomatis mengambil SEMUA data.
 
     const { data: priceChanges, error } = await query;
 
@@ -48,7 +51,7 @@ export async function GET(request: Request) {
     const fallers: any[] = [];
 
     (priceChanges || []).forEach((item: any) => {
-      // 1. Ambil tanggal murni (YYYY-MM-DD) agar tidak bergeser karena zona waktu UTC/WIB
+      // Formatting tanggal murni tanpa konversi timezone JS
       const rawDateStr = String(item.change_date || '').split('T')[0];
       let formattedDate = rawDateStr;
 
@@ -64,7 +67,6 @@ export async function GET(request: Request) {
         }
       }
 
-      // 2. Proteksi Nilai Null / Undefined
       const nowCostVal = Number(item.now_cost || 0);
       const priceChangeVal = Number(item.price_change || 0);
 
@@ -81,7 +83,6 @@ export async function GET(request: Request) {
         changeDate: formattedDate,
       };
 
-      // 3. Pengelompokan Riser / Faller yang Aman
       const changeType = String(item.change_type || '').toLowerCase();
       const isRiser = changeType === 'riser' || priceChangeVal > 0;
 
