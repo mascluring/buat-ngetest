@@ -61,6 +61,18 @@ export default function ManagerDetail({ params }: { params: { id: string } }) {
     loadData();
   }, [id]);
 
+  // V6.5 Manager DNA calculation for this manager (Placed before any conditional returns to obey React Rules of Hooks)
+  const managerDNA: ManagerDNAProfile | null = useMemo(() => {
+    if (!leagueInsights?.managerHistories || leagueInsights.managerHistories.length === 0) {
+      return null;
+    }
+    const res = calculateLeagueManagerDNA({
+      managerHistories: leagueInsights.managerHistories,
+      completedGameweeksCount: leagueInsights.performanceInsights?.summary?.completedGameweeks || 0,
+    });
+    return res.profiles.find((p) => String(p.managerId) === String(id)) || null;
+  }, [leagueInsights, id]);
+
   if (loading) {
     return (
       <main className="container py-12">
@@ -117,18 +129,6 @@ export default function ManagerDetail({ params }: { params: { id: string } }) {
 
     pointsPath = pts.map((p: any, i: number) => (i === 0 ? `M ${p.x} ${p.y}` : `L ${p.x} ${p.y}`)).join(' ');
   }
-
-  // V6.5 Manager DNA calculation for this manager
-  const managerDNA: ManagerDNAProfile | null = useMemo(() => {
-    if (!leagueInsights?.managerHistories || leagueInsights.managerHistories.length === 0) {
-      return null;
-    }
-    const res = calculateLeagueManagerDNA({
-      managerHistories: leagueInsights.managerHistories,
-      completedGameweeksCount: leagueInsights.performanceInsights?.summary?.completedGameweeks || 0,
-    });
-    return res.profiles.find((p) => String(p.managerId) === String(id)) || null;
-  }, [leagueInsights, id]);
 
   return (
     <main className="container page-shell py-8">
