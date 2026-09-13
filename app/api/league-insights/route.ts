@@ -81,7 +81,13 @@ export interface ManagerHistoricalRecord {
     event: number;
     points: number;
     total_points: number;
+    rank?: number;
+    overall_rank?: number;
+    bank?: number;
+    value?: number;
     points_on_bench: number;
+    event_transfers?: number;
+    event_transfers_cost?: number;
   }>;
 }
 
@@ -293,7 +299,12 @@ async function computeLeagueInsights(leagueId: number): Promise<LeaguePerformanc
           event: Number(h.event),
           points: Number(h.points),
           total_points: Number(h.total_points),
+          rank: Number(h.rank ?? 0),
+          overall_rank: Number(h.overall_rank ?? 0),
+          bank: Number(h.bank ?? 0),
+          value: Number(h.value ?? 0),
           points_on_bench: Number(h.points_on_bench ?? 0),
+          event_transfers: Number(h.event_transfers ?? 0),
           event_transfers_cost: Number(h.event_transfers_cost ?? 0),
         }));
 

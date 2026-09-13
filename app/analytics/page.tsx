@@ -31,6 +31,10 @@ import {
   Layers,
   Percent,
   CheckCircle2,
+  Compass,
+  Crosshair,
+  Gauge,
+  HelpCircle,
 } from 'lucide-react';
 import ScoreTrendChart from './ScoreTrendChart';
 import type { LeaguePerformanceInsightsResponse } from '@/app/api/league-insights/route';
@@ -40,6 +44,7 @@ import {
   calculateLeagueOverlapMatrix,
   calculateLeagueEfficiencyOverview,
   buildCurrentGWManagerDetail,
+  calculateLeagueManagerDNA,
   type LeagueOwnershipSummary,
   type PlayerOwnershipStats,
   type ManagerWithPicks,
@@ -47,6 +52,9 @@ import {
   type LeagueEfficiencyOverview,
   type CurrentGWManagerSquadDetail,
   type ManagerEfficiencySummary,
+  type LeagueDNAResult,
+  type ManagerDNAProfile,
+  type PlaystylePersona,
 } from '@/lib/league-analytics';
 
 const fmt = (n: number) => new Intl.NumberFormat('id-ID').format(n);
@@ -121,6 +129,11 @@ export default function Analytics() {
   });
   const [selectedEfficiencyManagerId, setSelectedEfficiencyManagerId] = useState<number | string | ''>('');
   const [efficiencySort, setEfficiencySort] = useState<'efficiency' | 'bench' | 'lineup' | 'rank'>('efficiency');
+
+  // V6.5 Manager DNA & Momentum state
+  const [dnaSort, setDnaSort] = useState<'rank' | 'aggressiveness' | 'differential' | 'boldness' | 'bench'>('rank');
+  const [dnaFilter, setDnaFilter] = useState<'all' | PlaystylePersona>('all');
+  const [selectedDnaManagerId, setSelectedDnaManagerId] = useState<number | string | ''>('');
 
   const loadAnalytics = async () => {
     setLoading(true);
@@ -335,6 +348,54 @@ export default function Analytics() {
       picksMeta.dataChecked
     );
   }, [picksDetails, selectedEfficiencyManagerId, data?.standings, picksMeta.isFinished, picksMeta.dataChecked]);
+
+  // V6.5 Manager DNA & Momentum calculation memo
+  const leagueDnaResult: LeagueDNAResult | null = useMemo(() => {
+    if (!insightsData?.managerHistories || insightsData.managerHistories.length === 0) {
+      return null;
+    }
+    const playerMap = new Map<number, PlayerOwnershipStats>();
+    if (ownershipSummary?.players) {
+      ownershipSummary.players.forEach((p) => playerMap.set(p.playerId, p));
+    }
+    return calculateLeagueManagerDNA({
+      managerHistories: insightsData.managerHistories as any,
+      picksDetails: picksDetails || undefined,
+      ownershipMap: playerMap.size > 0 ? playerMap : null,
+      completedGameweeksCount: insightsData.performanceInsights?.summary?.completedGameweeks || 0,
+    });
+  }, [insightsData?.managerHistories, insightsData?.performanceInsights?.summary?.completedGameweeks, picksDetails, ownershipSummary?.players]);
+
+  const sortedDnaProfiles: ManagerDNAProfile[] = useMemo(() => {
+    if (!leagueDnaResult?.profiles) return [];
+    let list = [...leagueDnaResult.profiles];
+
+    if (dnaFilter !== 'all') {
+      list = list.filter((p) => p.persona === dnaFilter);
+    }
+
+    if (dnaSort === 'rank') {
+      return list.sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999));
+    }
+    if (dnaSort === 'aggressiveness') {
+      return list.sort((a, b) => b.aggressiveness.score - a.aggressiveness.score);
+    }
+    if (dnaSort === 'differential') {
+      return list.sort((a, b) => b.differentialAffinity.score - a.differentialAffinity.score);
+    }
+    if (dnaSort === 'boldness') {
+      return list.sort((a, b) => b.captaincyBoldness.score - a.captaincyBoldness.score);
+    }
+    if (dnaSort === 'bench') {
+      return list.sort((a, b) => (b.benchProfile.painRatio ?? -1) - (a.benchProfile.painRatio ?? -1));
+    }
+    return list;
+  }, [leagueDnaResult?.profiles, dnaFilter, dnaSort]);
+
+  const selectedDnaProfile = useMemo(() => {
+    if (!leagueDnaResult?.profiles || !selectedDnaManagerId) return null;
+    return leagueDnaResult.profiles.find((p) => String(p.managerId) === String(selectedDnaManagerId)) || null;
+  }, [leagueDnaResult?.profiles, selectedDnaManagerId]);
 
   const filteredPlayers = useMemo(() => {
     if (!ownershipSummary?.players) return [];
@@ -2500,6 +2561,344 @@ export default function Analytics() {
           )}
         </section>
 
+        {/* V6.5 MANAGER DNA & PLAYSTYLE PROFILING */}
+        <section className="card p-6 my-6 bg-slate-900/90 border-slate-700">
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+            <div>
+              <div className="section-kicker">V6.5 MANAGER DNA & PLAYSTYLE PROFILING</div>
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <Compass size={22} className="text-amber-400" /> Profil Karakter & Gaya Bermain Manager
+              </h2>
+              <p className="text-sm text-slate-400 mt-1">
+                Analisis multi-dimensi gaya bermain manajer: Aggressiveness, Differential Affinity, Captaincy Boldness, dan Manajemen Bench.
+              </p>
+            </div>
+
+            {leagueDnaResult && (
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700 text-xs text-slate-300">
+                  <span className="text-slate-400">Median Aggressiveness:</span>{' '}
+                  <strong className="text-amber-400 font-mono">{leagueDnaResult.medianAggressiveness}/100</strong>
+                </div>
+                <div className="px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700 text-xs text-slate-300">
+                  <span className="text-slate-400">Median Differential:</span>{' '}
+                  <strong className="text-cyan-400 font-mono">{leagueDnaResult.medianDifferentialAffinity}/100</strong>
+                </div>
+                {leagueDnaResult.consensusCaptain && (
+                  <div className="px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700 text-xs text-slate-300">
+                    <span className="text-slate-400">Kapten Konsensus:</span>{' '}
+                    <strong className="text-emerald-400">{leagueDnaResult.consensusCaptain.playerName}</strong>{' '}
+                    <span className="text-[11px] text-slate-400">({leagueDnaResult.consensusCaptain.sharePercentage}%)</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {insightsLoading ? (
+            <div className="py-12 text-center text-slate-400">
+              <RefreshCw className="spin mx-auto mb-2 text-cyan-400" size={24} />
+              Menghitung profil Manager DNA liga...
+            </div>
+          ) : !leagueDnaResult || leagueDnaResult.profiles.length === 0 ? (
+            <div className="p-8 text-center bg-slate-950/40 rounded-xl border border-slate-800 text-slate-400">
+              Data riwayat manajer belum memadai untuk mengkalkulasi Manager DNA.
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* Persona Archetype Distribution Pills */}
+              <div className="flex flex-wrap items-center gap-2 p-3 bg-slate-950/50 rounded-xl border border-slate-800">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mr-2">Filter Playstyle:</span>
+                <button
+                  type="button"
+                  onClick={() => setDnaFilter('all')}
+                  className={`px-2.5 py-1 text-xs rounded-lg transition-all font-semibold ${
+                    dnaFilter === 'all'
+                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50'
+                      : 'bg-slate-800/60 text-slate-400 border border-slate-700 hover:text-white'
+                  }`}
+                >
+                  Semua ({leagueDnaResult.profiles.length})
+                </button>
+                {(
+                  [
+                    'The Template General',
+                    'The Chaos Merchant',
+                    'The Differential Sniper',
+                    'The Squad Hoarder',
+                    'The Steady Grinder',
+                    'Calibrating',
+                  ] as PlaystylePersona[]
+                ).map((personaKey) => {
+                  const count = leagueDnaResult.personaDistribution[personaKey] || 0;
+                  if (count === 0 && personaKey === 'Calibrating') return null;
+                  return (
+                    <button
+                      key={personaKey}
+                      type="button"
+                      onClick={() => setDnaFilter(personaKey)}
+                      className={`px-2.5 py-1 text-xs rounded-lg transition-all font-semibold ${
+                        dnaFilter === personaKey
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50'
+                          : 'bg-slate-800/60 text-slate-400 border border-slate-700 hover:text-white'
+                      }`}
+                    >
+                      {personaKey === 'Calibrating' ? 'Kalibrasi' : personaKey} ({count})
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Sorting & Table / Grid */}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="text-xs text-slate-400">
+                  Menampilkan <strong className="text-white">{sortedDnaProfiles.length}</strong> profil manajer
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-400">Urutkan:</span>
+                  <select
+                    value={dnaSort}
+                    onChange={(e: any) => setDnaSort(e.target.value)}
+                    className="bg-slate-800 text-xs text-slate-200 border border-slate-700 rounded-lg px-2.5 py-1.5 outline-none focus:border-amber-400"
+                  >
+                    <option value="rank">Klasemen Liga</option>
+                    <option value="aggressiveness">Aggressiveness Tertinggi</option>
+                    <option value="differential">Differential Affinity Tertinggi</option>
+                    <option value="boldness">Captaincy Boldness Tertinggi</option>
+                    <option value="bench">Bench Pain Tertinggi</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* DNA Profiles Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {sortedDnaProfiles.map((p) => {
+                  const isSelected = String(selectedDnaManagerId) === String(p.managerId);
+                  const isCalibrating = p.calibrationStatus === 'CALIBRATING';
+
+                  let badgeBg = 'bg-slate-800 text-slate-300 border-slate-700';
+                  if (p.persona === 'The Chaos Merchant') badgeBg = 'bg-rose-950/80 text-rose-300 border-rose-500/40';
+                  else if (p.persona === 'The Differential Sniper') badgeBg = 'bg-cyan-950/80 text-cyan-300 border-cyan-500/40';
+                  else if (p.persona === 'The Template General') badgeBg = 'bg-emerald-950/80 text-emerald-300 border-emerald-500/40';
+                  else if (p.persona === 'The Squad Hoarder') badgeBg = 'bg-purple-950/80 text-purple-300 border-purple-500/40';
+                  else if (p.persona === 'The Steady Grinder') badgeBg = 'bg-amber-950/80 text-amber-300 border-amber-500/40';
+
+                  return (
+                    <div
+                      key={p.managerId}
+                      onClick={() => setSelectedDnaManagerId(isSelected ? '' : p.managerId)}
+                      className={`card p-4 bg-slate-950/70 border transition-all cursor-pointer hover:border-slate-600 ${
+                        isSelected ? 'border-amber-400 ring-1 ring-amber-400/50 shadow-lg' : 'border-slate-800'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3 mb-3">
+                        <div className="truncate">
+                          <div className="flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center text-[10px] font-bold text-slate-300">
+                              #{p.rank}
+                            </span>
+                            <span className="font-bold text-white text-sm truncate">{p.managerName}</span>
+                          </div>
+                          <div className="text-[11px] text-slate-400 truncate mt-0.5">{p.teamName}</div>
+                        </div>
+                        <span className={`px-2 py-0.5 rounded text-[11px] font-bold border shrink-0 ${badgeBg}`}>
+                          {p.personaTitle}
+                        </span>
+                      </div>
+
+                      {/* Radar-like 4 Pillars */}
+                      <div className="space-y-2 text-xs pt-2 border-t border-slate-800/80">
+                        {/* 1. Aggressiveness */}
+                        <div>
+                          <div className="flex justify-between text-[11px] mb-1">
+                            <span className="text-slate-400 flex items-center gap-1">
+                              <Flame size={12} className="text-rose-400" /> Aggressiveness:
+                            </span>
+                            <span className="font-bold text-slate-200">
+                              {p.aggressiveness.score}/100
+                              <span className="text-[10px] text-slate-500 ml-1">
+                                (-{p.aggressiveness.totalTransferCost} pts)
+                              </span>
+                            </span>
+                          </div>
+                          <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-gradient-to-r from-rose-500 to-amber-500 rounded-full"
+                              style={{ width: `${p.aggressiveness.score}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* 2. Differential Affinity */}
+                        <div>
+                          <div className="flex justify-between text-[11px] mb-1">
+                            <span className="text-slate-400 flex items-center gap-1">
+                              <Radar size={12} className="text-cyan-400" /> Differential Affinity:
+                            </span>
+                            <span className="font-bold text-slate-200">
+                              {p.differentialAffinity.score}/100
+                              <span className="text-[10px] text-slate-500 ml-1">
+                                ({p.differentialAffinity.differentialCount} diff)
+                              </span>
+                            </span>
+                          </div>
+                          <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-gradient-to-r from-teal-500 to-cyan-400 rounded-full"
+                              style={{ width: `${p.differentialAffinity.score}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* 3. Captaincy Boldness */}
+                        <div>
+                          <div className="flex justify-between text-[11px] mb-1">
+                            <span className="text-slate-400 flex items-center gap-1">
+                              <Crown size={12} className="text-amber-400" /> Captaincy Boldness:
+                            </span>
+                            <span className="font-bold text-slate-200">
+                              {p.captaincyBoldness.score}/100
+                              <span className="text-[10px] text-slate-500 ml-1">
+                                ({p.captaincyBoldness.currentCaptainName})
+                              </span>
+                            </span>
+                          </div>
+                          <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-gradient-to-r from-amber-500 to-yellow-400 rounded-full"
+                              style={{ width: `${p.captaincyBoldness.score}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* 4. Bench Utilization / Pain */}
+                        <div>
+                          <div className="flex justify-between text-[11px] mb-1">
+                            <span className="text-slate-400 flex items-center gap-1">
+                              <Layers size={12} className="text-purple-400" /> Bench Pain Ratio:
+                            </span>
+                            <span className="font-bold text-slate-200">
+                              {p.benchProfile.painRatio !== null ? `${p.benchProfile.painRatio}%` : '—'}
+                              <span className="text-[10px] text-slate-500 ml-1">
+                                ({p.benchProfile.totalRawBenchPoints} pts)
+                              </span>
+                            </span>
+                          </div>
+                          <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-purple-500 rounded-full"
+                              style={{ width: `${p.benchProfile.painRatio ?? 0}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Persona Description */}
+                      <p className="text-[11px] text-slate-400 mt-3 pt-2 border-t border-slate-800/80 line-clamp-2">
+                        {p.personaDescription}
+                      </p>
+
+                      <div className="mt-3 flex items-center justify-between text-[11px] text-slate-500">
+                        <span>GW Selesai: {p.sampleSize.completedGameweeks}</span>
+                        <Link
+                          href={`/manager/${p.managerId}`}
+                          className="text-cyan-400 hover:text-cyan-300 font-semibold inline-flex items-center gap-0.5"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          Lihat Profil <ChevronRight size={12} />
+                        </Link>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Form & Momentum Power Ranking Table */}
+              {leagueDnaResult.momentumRanking.length > 0 && (
+                <div className="mt-8 pt-6 border-t border-slate-800">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+                    <div>
+                      <h3 className="text-base font-bold text-white flex items-center gap-2">
+                        <Activity size={18} className="text-emerald-400" /> Momentum & Form Power Ranking
+                      </h3>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Indeks performa terkini berdasarkan rata-rata poin 3 Gameweek terakhir & tren pergerakan rank.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="border-b border-slate-800 text-slate-400 font-semibold uppercase tracking-wider">
+                          <th className="py-2.5 px-3">Pos</th>
+                          <th className="py-2.5 px-3">Manager</th>
+                          <th className="py-2.5 px-3 text-center">Trend</th>
+                          <th className="py-2.5 px-3 text-center">Momentum</th>
+                          <th className="py-2.5 px-3 text-right">Rata-rata 3 GW</th>
+                          <th className="py-2.5 px-3 text-right">Total 3 GW</th>
+                          <th className="py-2.5 px-3 text-right">Rank Shift</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800/60">
+                        {leagueDnaResult.momentumRanking.map((m, idx) => {
+                          let trendBadge = 'bg-slate-800 text-slate-300';
+                          if (m.trend === 'HOT') trendBadge = 'bg-rose-950 text-rose-300 border border-rose-500/40 font-bold';
+                          else if (m.trend === 'WARM') trendBadge = 'bg-amber-950 text-amber-300 border border-amber-500/40 font-bold';
+                          else if (m.trend === 'COOL') trendBadge = 'bg-cyan-950 text-cyan-300 border border-cyan-500/40';
+                          else if (m.trend === 'COLD') trendBadge = 'bg-slate-900 text-slate-400 border border-slate-700';
+
+                          return (
+                            <tr key={m.managerId} className="hover:bg-slate-800/40 transition-colors">
+                              <td className="py-2.5 px-3 font-mono font-bold text-slate-400">
+                                #{idx + 1}
+                              </td>
+                              <td className="py-2.5 px-3">
+                                <Link
+                                  href={`/manager/${m.managerId}`}
+                                  className="font-bold text-white hover:text-cyan-400 transition-colors"
+                                >
+                                  {m.managerName}
+                                </Link>
+                                <div className="text-[10px] text-slate-400">{m.teamName}</div>
+                              </td>
+                              <td className="py-2.5 px-3 text-center">
+                                <span className={`px-2 py-0.5 rounded text-[10px] uppercase ${trendBadge}`}>
+                                  {m.trend}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 text-center">
+                                <span className="font-mono font-bold text-amber-400">
+                                  {m.momentumScore}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 text-right font-mono font-semibold text-slate-200">
+                                {m.recentAverage} pts
+                              </td>
+                              <td className="py-2.5 px-3 text-right font-mono text-slate-300">
+                                {m.recentPointsSum} pts
+                              </td>
+                              <td className="py-2.5 px-3 text-right font-mono">
+                                {m.recentRankMovement > 0 ? (
+                                  <span className="text-emerald-400 font-bold">↑ +{m.recentRankMovement}</span>
+                                ) : m.recentRankMovement < 0 ? (
+                                  <span className="text-rose-400 font-bold">↓ {m.recentRankMovement}</span>
+                                ) : (
+                                  <span className="text-slate-500">0</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+
         {/* POWER RANKING & SEASON PULSE */}
         <div className="analytics-feature-grid">
           <section className="card feature-card">
@@ -2551,7 +2950,7 @@ export default function Analytics() {
         {/* ROADMAP / NEXT INSIGHTS */}
         <section className="card roadmap mt-6">
           <div>
-            <div className="section-kicker">V6.4 ANALYTICS — LEAGUE COMMAND CENTER</div>
+            <div className="section-kicker">V6.5 ANALYTICS — LEAGUE COMMAND CENTER</div>
             <h2>Insight berikutnya</h2>
             <div className="roadmap-tags">
               <span>Captain Performance</span>
@@ -2563,7 +2962,7 @@ export default function Analytics() {
           </div>
         </section>
 
-        <footer>ERA SUPER LEAGUE • Analytics V6.4 • League ID 134820</footer>
+        <footer>ERA SUPER LEAGUE • Analytics V6.5 • League ID 134820</footer>
       </div>
     </main>
   );

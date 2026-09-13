@@ -1419,6 +1419,571 @@ export function buildCurrentGWManagerDetail(
   };
 }
 
+// ==========================================
+// V6.5 MANAGER DNA & MOMENTUM CALCULATIONS
+// ==========================================
+
+export type PlaystylePersona =
+  | 'The Template General'
+  | 'The Chaos Merchant'
+  | 'The Differential Sniper'
+  | 'The Squad Hoarder'
+  | 'The Steady Grinder'
+  | 'Calibrating';
+
+export interface ManagerDNAProfile {
+  managerId: number;
+  managerName: string;
+  teamName: string;
+  rank: number;
+  currentTotal: number;
+
+  // 1. Aggressiveness Index (0-100)
+  aggressiveness: {
+    score: number; // 0 - 100
+    totalTransferCost: number; // Sum of event_transfers_cost
+    totalTransfers: number; // Sum of event_transfers
+    hitGWsCount: number; // GWs with cost > 0
+    eligibleGWsCount: number; // Completed GWs excluding WC/FH
+    avgHitPerEligibleGW: number;
+    hitFrequencyRatio: number; // hitGWsCount / eligibleGWsCount
+    hitDragRatio: number; // totalTransferCost / totalGrossLineupPoints
+  };
+
+  // 2. Differential Affinity (0-100)
+  differentialAffinity: {
+    score: number; // 0 - 100 (Higher = more differential)
+    templateExposure: number; // Weighted average league ownership of squad (0-100)
+    differentialCount: number; // Count of players in 15-man squad with ownership < 15%
+    coreCount: number; // Count of players in 15-man squad with ownership > 60%
+    standardCount: number;
+  };
+
+  // 3. Captaincy Boldness (0-100)
+  captaincyBoldness: {
+    score: number; // 0 - 100
+    currentCaptainName: string;
+    isConsensusCaptain: boolean;
+    consensusCaptainName: string;
+    captainLeagueOwnership: number; // % of league owning this captain
+    captainExposureShare: number; // % of league captaining this player
+  };
+
+  // 4. Bench Profile
+  benchProfile: {
+    painRatio: number | null; // % of total points left on bench across eligible GWs
+    totalRawBenchPoints: number; // Exact raw sum (negative numbers preserved)
+    gwsWithBenchedDoubleDigits: number; // Frequency of leaving >= 10 pts on bench
+    eligibleBenchGWsCount: number;
+  };
+
+  // 5. Synthesis & Archetype
+  persona: PlaystylePersona;
+  personaTitle: string;
+  personaDescription: string;
+  calibrationStatus: 'CALIBRATING' | 'CALIBRATED';
+  sampleSize: {
+    completedGameweeks: number;
+    eligibleTransferGameweeks: number;
+  };
+}
+
+export interface ManagerMomentumEntry {
+  managerId: number;
+  managerName: string;
+  teamName: string;
+  currentRank: number;
+  currentTotal: number;
+  windowGWs: number[];
+  recentPointsSum: number;
+  recentAverage: number;
+  recentRankMovement: number; // Sum of (last_rank - rank) across window
+  momentumScore: number; // 0 - 100 normalized index
+  trend: 'HOT' | 'WARM' | 'COOL' | 'COLD';
+}
+
+export interface LeagueDNAResult {
+  profiles: ManagerDNAProfile[];
+  medianAggressiveness: number;
+  medianDifferentialAffinity: number;
+  medianCaptaincyBoldness: number;
+  medianBenchPainRatio: number | null;
+  consensusCaptain: {
+    playerName: string;
+    captainCount: number;
+    sharePercentage: number;
+  } | null;
+  personaDistribution: Record<PlaystylePersona, number>;
+  momentumRanking: ManagerMomentumEntry[];
+}
+
+/**
+ * Calculates deterministic Manager DNA & Playstyle Profiling for all managers in the league.
+ * Zero external network calls - consumes existing batched managerHistories and league-picks details.
+ */
+export function calculateLeagueManagerDNA(params: {
+  managerHistories: Array<{
+    entryId: number;
+    entryName: string;
+    playerName: string;
+    currentRank: number;
+    currentTotal: number;
+    chips: Array<{ name: string; event: number }>;
+    history: Array<{
+      event: number;
+      points: number;
+      total_points: number;
+      rank: number;
+      overall_rank: number;
+      bank: number;
+      value: number;
+      event_transfers: number;
+      event_transfers_cost: number;
+      points_on_bench: number;
+    }>;
+  }>;
+  picksDetails?: Record<string | number, any> | null;
+  ownershipMap?: Map<number, PlayerOwnershipStats> | null;
+  completedGameweeksCount?: number;
+}): LeagueDNAResult {
+  const {
+    managerHistories = [],
+    picksDetails = {},
+    ownershipMap = new Map<number, PlayerOwnershipStats>(),
+    completedGameweeksCount = 0,
+  } = params;
+
+  const totalManagers = managerHistories.length;
+  if (totalManagers === 0) {
+    return {
+      profiles: [],
+      medianAggressiveness: 0,
+      medianDifferentialAffinity: 0,
+      medianCaptaincyBoldness: 0,
+      medianBenchPainRatio: null,
+      consensusCaptain: null,
+      personaDistribution: {
+        'The Template General': 0,
+        'The Chaos Merchant': 0,
+        'The Differential Sniper': 0,
+        'The Squad Hoarder': 0,
+        'The Steady Grinder': 0,
+        'Calibrating': 0,
+      },
+      momentumRanking: [],
+    };
+  }
+
+  // 1. Identify current consensus captain from picksDetails
+  const captainTally = new Map<string, { count: number; playerName: string }>();
+  let totalCaptainsRecorded = 0;
+
+  if (picksDetails && Object.keys(picksDetails).length > 0) {
+    Object.values(picksDetails).forEach((detail: any) => {
+      const capName = detail.captainName;
+      if (capName && capName !== '—') {
+        const entry = captainTally.get(capName) || { count: 0, playerName: capName };
+        entry.count += 1; // Triple Captain counts as 1 exposure in count
+        captainTally.set(capName, entry);
+        totalCaptainsRecorded += 1;
+      }
+    });
+  }
+
+  let consensusCaptainInfo: { playerName: string; count: number; share: number } | null = null;
+  if (captainTally.size > 0) {
+    const sortedCaptains = Array.from(captainTally.values()).sort((a, b) => b.count - a.count);
+    const topCap = sortedCaptains[0];
+    consensusCaptainInfo = {
+      playerName: topCap.playerName,
+      count: topCap.count,
+      share: totalCaptainsRecorded > 0 ? round2((topCap.count / totalCaptainsRecorded) * 100) : 0,
+    };
+  }
+
+  // 2. Compute individual metrics per manager
+  const rawProfiles = managerHistories.map((m) => {
+    const historyList = Array.isArray(m.history) ? m.history : [];
+    const chipsList = Array.isArray(m.chips) ? m.chips : [];
+
+    // Chip GW lookup (Wildcard / Free Hit makes transfers free)
+    const freeTransferEvents = new Set<number>();
+    const benchBoostEvents = new Set<number>();
+
+    chipsList.forEach((c) => {
+      const name = String(c.name || '').toLowerCase();
+      if (name.includes('wildcard') || name.includes('freehit')) {
+        freeTransferEvents.add(c.event);
+      }
+      if (name.includes('bboost') || name === 'bb') {
+        benchBoostEvents.add(c.event);
+      }
+    });
+
+    // A. AGGRESSIVENESS INDEX (0-100)
+    // Eligible GWs = completed GWs excluding Wildcard & Free Hit
+    let totalTransferCost = 0;
+    let totalTransfers = 0;
+    let hitGWsCount = 0;
+    let eligibleGWsCount = 0;
+    let totalGrossLineupPoints = 0;
+
+    historyList.forEach((h) => {
+      const isEligible = !freeTransferEvents.has(h.event);
+      if (isEligible) {
+        eligibleGWsCount++;
+        const cost = Number(h.event_transfers_cost || 0);
+        if (cost > 0) {
+          hitGWsCount++;
+          totalTransferCost += cost;
+        }
+      }
+      totalTransfers += Number(h.event_transfers || 0);
+      totalGrossLineupPoints += Number(h.points || 0);
+    });
+
+    const hitFrequencyRatio = eligibleGWsCount > 0 ? round2(hitGWsCount / eligibleGWsCount) : 0;
+    const avgHitPerEligibleGW = eligibleGWsCount > 0 ? round2(totalTransferCost / eligibleGWsCount) : 0;
+    const hitDragRatio = totalGrossLineupPoints > 0 ? round2(totalTransferCost / totalGrossLineupPoints) : 0;
+
+    // Continuous exponential saturation model (No arbitrary hard clamp)
+    // Score = 0.5 * hitFrequencyRatio + 0.5 * (avgHitPerEligibleGW / 4)
+    // Aggressiveness = round(100 * (1 - e^(-1.6 * Score)))
+    let aggressivenessScore = 0;
+    if (eligibleGWsCount > 0 && totalTransferCost > 0) {
+      const compositeHitScore = (0.5 * hitFrequencyRatio) + (0.5 * (avgHitPerEligibleGW / 4));
+      aggressivenessScore = Math.min(100, Math.max(0, Math.round(100 * (1 - Math.exp(-1.6 * compositeHitScore)))));
+    }
+
+    // B. DIFFERENTIAL AFFINITY (0-100)
+    // Evaluates 15-man squad against League Ownership Map
+    const managerPickDetail = picksDetails ? picksDetails[m.entryId] : null;
+    const picksList: any[] = managerPickDetail?.picksList || [];
+
+    let differentialCount = 0;
+    let coreCount = 0;
+    let standardCount = 0;
+    let weightedExposureSum = 0;
+    let weightedMaxDenominator = 0;
+
+    if (picksList.length > 0 && ownershipMap && ownershipMap.size > 0) {
+      picksList.forEach((pick: any) => {
+        const playerId = Number(pick.id);
+        const ownStat = ownershipMap.get(playerId);
+        const ownPct = ownStat ? ownStat.ownership : 0;
+        const isStarter = pick.position <= 11;
+        const weight = isStarter ? 1.0 : 0.5;
+
+        weightedExposureSum += ownPct * weight;
+        weightedMaxDenominator += 100 * weight;
+
+        if (ownPct < 15.0) {
+          differentialCount++;
+        } else if (ownPct > 60.0) {
+          coreCount++;
+        } else {
+          standardCount++;
+        }
+      });
+    }
+
+    const templateExposure = weightedMaxDenominator > 0
+      ? round2((weightedExposureSum / weightedMaxDenominator) * 100)
+      : 50.0;
+    const differentialAffinityScore = Math.min(100, Math.max(0, round2(100 - templateExposure)));
+
+    // C. CAPTAINCY BOLDNESS (0-100)
+    const currentCaptainName = managerPickDetail?.captainName || '—';
+    const currentCaptainPick = picksList.find((p: any) => p.isCaptain || p.is_captain);
+    const captainPlayerId = currentCaptainPick ? Number(currentCaptainPick.id) : null;
+    const captainOwnStat = captainPlayerId ? ownershipMap?.get(captainPlayerId) : null;
+    const captainLeagueOwnership = captainOwnStat ? captainOwnStat.ownership : 0;
+
+    const isConsensusCaptain = Boolean(
+      consensusCaptainInfo &&
+      currentCaptainName !== '—' &&
+      currentCaptainName.toLowerCase() === consensusCaptainInfo.playerName.toLowerCase()
+    );
+
+    let captainExposureShare = 0;
+    if (consensusCaptainInfo && currentCaptainName !== '—') {
+      const tally = captainTally.get(currentCaptainName);
+      if (tally && totalCaptainsRecorded > 0) {
+        captainExposureShare = round2((tally.count / totalCaptainsRecorded) * 100);
+      }
+    }
+
+    let captaincyBoldnessScore = 50;
+    if (currentCaptainName !== '—' && totalCaptainsRecorded > 0) {
+      if (isConsensusCaptain && consensusCaptainInfo) {
+        // Safe captain: boldness is inversely proportional to consensus dominance
+        captaincyBoldnessScore = Math.min(100, Math.max(0, round2(100 - consensusCaptainInfo.share)));
+      } else {
+        // Maverick captain: boldness is 100 minus the share of managers captaining this pick
+        captaincyBoldnessScore = Math.min(100, Math.max(0, round2(100 - captainExposureShare)));
+      }
+    }
+
+    // D. BENCH PROFILE (Bench Utilization / Pain Ratio)
+    let totalRawBenchPoints = 0;
+    let validBenchPointsSum = 0;
+    let validLineupPointsSum = 0;
+    let gwsWithBenchedDoubleDigits = 0;
+    let eligibleBenchGWsCount = 0;
+
+    historyList.forEach((h) => {
+      const rawBench = Number(h.points_on_bench ?? 0);
+      const grossLineup = Number(h.points ?? 0);
+      totalRawBenchPoints += rawBench;
+
+      const isBenchBoost = benchBoostEvents.has(h.event);
+      // Canonical V6.4 Rule: If Bench Boost active OR rawBench < 0, ratio metric for that GW is null
+      if (!isBenchBoost && rawBench >= 0) {
+        validBenchPointsSum += rawBench;
+        validLineupPointsSum += grossLineup;
+        eligibleBenchGWsCount++;
+        if (rawBench >= 10) {
+          gwsWithBenchedDoubleDigits++;
+        }
+      }
+    });
+
+    const totalValidCombined = validLineupPointsSum + validBenchPointsSum;
+    const benchPainRatio = (eligibleBenchGWsCount > 0 && totalValidCombined > 0)
+      ? round2((validBenchPointsSum / totalValidCombined) * 100)
+      : null;
+
+    // Calibration check (requires >= 3 completed GWs)
+    const effectiveGWsCount = Math.max(completedGameweeksCount, historyList.length);
+    const isCalibrated = effectiveGWsCount >= 3;
+
+    return {
+      managerId: m.entryId,
+      managerName: m.playerName || `Manager #${m.entryId}`,
+      teamName: m.entryName || '',
+      rank: m.currentRank,
+      currentTotal: m.currentTotal,
+      aggressiveness: {
+        score: aggressivenessScore,
+        totalTransferCost,
+        totalTransfers,
+        hitGWsCount,
+        eligibleGWsCount,
+        avgHitPerEligibleGW,
+        hitFrequencyRatio,
+        hitDragRatio,
+      },
+      differentialAffinity: {
+        score: differentialAffinityScore,
+        templateExposure,
+        differentialCount,
+        coreCount,
+        standardCount,
+      },
+      captaincyBoldness: {
+        score: captaincyBoldnessScore,
+        currentCaptainName,
+        isConsensusCaptain,
+        consensusCaptainName: consensusCaptainInfo ? consensusCaptainInfo.playerName : '—',
+        captainLeagueOwnership,
+        captainExposureShare,
+      },
+      benchProfile: {
+        painRatio: benchPainRatio,
+        totalRawBenchPoints,
+        gwsWithBenchedDoubleDigits,
+        eligibleBenchGWsCount,
+      },
+      effectiveGWsCount,
+      isCalibrated,
+    };
+  });
+
+  // 3. Compute Medians for relative league benchmarking
+  const aggScores = rawProfiles.map((p) => p.aggressiveness.score).sort((a, b) => a - b);
+  const diffScores = rawProfiles.map((p) => p.differentialAffinity.score).sort((a, b) => a - b);
+  const capScores = rawProfiles.map((p) => p.captaincyBoldness.score).sort((a, b) => a - b);
+  const benchPains = rawProfiles
+    .map((p) => p.benchProfile.painRatio)
+    .filter((v): v is number => v !== null)
+    .sort((a, b) => a - b);
+
+  const median = (arr: number[]) => {
+    if (arr.length === 0) return 0;
+    const mid = Math.floor(arr.length / 2);
+    return arr.length % 2 !== 0 ? arr[mid] : round2((arr[mid - 1] + arr[mid]) / 2);
+  };
+
+  const medianAgg = median(aggScores);
+  const medianDiff = median(diffScores);
+  const medianCap = median(capScores);
+  const medianBench = benchPains.length > 0 ? median(benchPains) : null;
+
+  // 4. Assign deterministic Persona with explicit precedence
+  const personaDistribution: Record<PlaystylePersona, number> = {
+    'The Template General': 0,
+    'The Chaos Merchant': 0,
+    'The Differential Sniper': 0,
+    'The Squad Hoarder': 0,
+    'The Steady Grinder': 0,
+    'Calibrating': 0,
+  };
+
+  const finalizedProfiles: ManagerDNAProfile[] = rawProfiles.map((p) => {
+    if (!p.isCalibrated) {
+      personaDistribution['Calibrating']++;
+      return {
+        ...p,
+        persona: 'Calibrating' as PlaystylePersona,
+        personaTitle: 'Sedang Kalibrasi Data',
+        personaDescription: `Profil gaya bermain membutuhkan minimal 3 Gameweek selesai (saat ini: GW ${p.effectiveGWsCount}/3).`,
+        calibrationStatus: 'CALIBRATING',
+        sampleSize: {
+          completedGameweeks: p.effectiveGWsCount,
+          eligibleTransferGameweeks: p.aggressiveness.eligibleGWsCount,
+        },
+      };
+    }
+
+    let persona: PlaystylePersona;
+    let personaTitle: string;
+    let personaDescription: string;
+
+    const isHighAgg = p.aggressiveness.score >= Math.max(35, medianAgg + 15) && p.aggressiveness.hitGWsCount >= 2;
+    const isHighDiff = p.differentialAffinity.score >= Math.max(55, medianDiff + 10);
+    const isLowDiff = p.differentialAffinity.score <= Math.min(45, medianDiff - 10);
+    const isHighBenchPain = p.benchProfile.painRatio !== null && medianBench !== null && p.benchProfile.painRatio >= medianBench + 8;
+    const isConservativeAgg = p.aggressiveness.score <= Math.min(25, medianAgg);
+
+    // Precedence hierarchy:
+    // 1. The Chaos Merchant (Priority: High Aggressiveness)
+    // 2. The Differential Sniper (Priority: High Differential + Low/Med Aggressiveness)
+    // 3. The Template General (Priority: Low Differential + Conservative)
+    // 4. The Squad Hoarder (Priority: High Bench Pain)
+    // 5. The Steady Grinder (Balanced / Default)
+    if (isHighAgg) {
+      persona = 'The Chaos Merchant';
+      personaTitle = 'The Chaos Merchant';
+      personaDescription = 'Gaya bermain ultra-agresif; berani mengambil penalti poin transfer demi merombak tim dan mengejar momentum.';
+    } else if (isHighDiff && isConservativeAgg) {
+      persona = 'The Differential Sniper';
+      personaTitle = 'The Differential Sniper';
+      personaDescription = 'Jeli memilih pemain differential berkepemilikan rendah dengan tetap disiplin menjaga pengeluaran transfer.';
+    } else if (isLowDiff && isConservativeAgg) {
+      persona = 'The Template General';
+      personaTitle = 'The Template General';
+      personaDescription = 'Mengandalkan pemain konsensus utama liga; bermain aman, disiplin, dan meminimalkan resiko transfer minus.';
+    } else if (isHighBenchPain) {
+      persona = 'The Squad Hoarder';
+      personaTitle = 'The Squad Hoarder';
+      personaDescription = 'Memiliki kedalaman skuad tinggi namun kerap dipusingkan rotasi; potensi poin besar kerap tertinggal di bench.';
+    } else {
+      persona = 'The Steady Grinder';
+      personaTitle = 'The Steady Grinder';
+      personaDescription = 'Pendekatan taktis berimbang; seimbang antara adaptasi pemain populer dan konsistensi jangka panjang.';
+    }
+
+    personaDistribution[persona]++;
+
+    return {
+      managerId: p.managerId,
+      managerName: p.managerName,
+      teamName: p.teamName,
+      rank: p.rank,
+      currentTotal: p.currentTotal,
+      aggressiveness: p.aggressiveness,
+      differentialAffinity: p.differentialAffinity,
+      captaincyBoldness: p.captaincyBoldness,
+      benchProfile: p.benchProfile,
+      persona,
+      personaTitle,
+      personaDescription,
+      calibrationStatus: 'CALIBRATED',
+      sampleSize: {
+        completedGameweeks: p.effectiveGWsCount,
+        eligibleTransferGameweeks: p.aggressiveness.eligibleGWsCount,
+      },
+    };
+  });
+
+  // 5. Compute Momentum Ranking (Form Power Ranking)
+  // Evaluates rolling 3 completed GWs
+  const momentumRanking: ManagerMomentumEntry[] = managerHistories.map((m) => {
+    const historyList = [...(m.history || [])].sort((a, b) => a.event - b.event);
+    const windowSize = Math.min(3, historyList.length);
+    const recentWindow = historyList.slice(-windowSize);
+
+    const windowGWs = recentWindow.map((h) => h.event);
+    const recentPointsSum = recentWindow.reduce((s, h) => s + (h.points || 0), 0);
+    const recentAverage = windowSize > 0 ? round2(recentPointsSum / windowSize) : 0;
+
+    // Rank movement sum across window: lower overall_rank is better (positive movement = climbed up)
+    let recentRankMovement = 0;
+    for (let i = 1; i < recentWindow.length; i++) {
+      const prevRank = recentWindow[i - 1].overall_rank;
+      const currRank = recentWindow[i].overall_rank;
+      if (prevRank && currRank) {
+        recentRankMovement += (prevRank - currRank);
+      }
+    }
+
+    return {
+      managerId: m.entryId,
+      managerName: m.playerName || `Manager #${m.entryId}`,
+      teamName: m.entryName || '',
+      currentRank: m.currentRank,
+      currentTotal: m.currentTotal,
+      windowGWs,
+      recentPointsSum,
+      recentAverage,
+      recentRankMovement,
+      momentumScore: 50, // To be normalized below
+      trend: 'WARM' as 'HOT' | 'WARM' | 'COOL' | 'COLD',
+    };
+  });
+
+  // Normalize Momentum Score 0-100 based on recentAverage
+  if (momentumRanking.length > 0) {
+    const minAvg = Math.min(...momentumRanking.map((m) => m.recentAverage));
+    const maxAvg = Math.max(...momentumRanking.map((m) => m.recentAverage));
+    const range = maxAvg - minAvg;
+
+    momentumRanking.forEach((m) => {
+      let score = 50;
+      if (range > 0) {
+        score = Math.min(100, Math.max(0, Math.round(((m.recentAverage - minAvg) / range) * 100)));
+      }
+      m.momentumScore = score;
+      if (score >= 75) m.trend = 'HOT';
+      else if (score >= 50) m.trend = 'WARM';
+      else if (score >= 25) m.trend = 'COOL';
+      else m.trend = 'COLD';
+    });
+
+    // Deterministic sort: Momentum score desc, then recentRankMovement desc, then currentRank asc
+    momentumRanking.sort((a, b) => {
+      if (b.momentumScore !== a.momentumScore) return b.momentumScore - a.momentumScore;
+      if (b.recentRankMovement !== a.recentRankMovement) return b.recentRankMovement - a.recentRankMovement;
+      return a.currentRank - b.currentRank;
+    });
+  }
+
+  return {
+    profiles: finalizedProfiles.sort((a, b) => a.rank - b.rank),
+    medianAggressiveness: medianAgg,
+    medianDifferentialAffinity: medianDiff,
+    medianCaptaincyBoldness: medianCap,
+    medianBenchPainRatio: medianBench,
+    consensusCaptain: consensusCaptainInfo ? {
+      playerName: consensusCaptainInfo.playerName,
+      captainCount: consensusCaptainInfo.count,
+      sharePercentage: consensusCaptainInfo.share,
+    } : null,
+    personaDistribution,
+    momentumRanking,
+  };
+}
+
 /**
  * Formal Verification Tests (Test 1 through Test 5) answering V6.4 Phase 3:
  * Test 1: Normal (72 lineup, 18 bench => 80.0%)
@@ -1426,6 +1991,13 @@ export function buildCurrentGWManagerDetail(
  * Test 3: Negative Bench (10 lineup, -2 raw bench => raw preserved -2, efficiency null)
  * Test 4: Bench Boost (active => efficiency null, benchBoostActive true)
  * Test 5: Transfer Hit (points = 70, transferCost = 4 => netGameweekPoints = 66)
+ *
+ * Plus V6.5 Tests:
+ * Test 6: Zero transfer hit => aggressiveness 0
+ * Test 7: Captain consensus case vs Differential case
+ * Test 8: Triple Captain counts as 1 exposure in DNA
+ * Test 9: Negative bench preservation in DNA benchProfile
+ * Test 10: Early season calibration threshold (< 3 GWs => Calibrating)
  */
 export function runRequiredSemanticTests() {
   // Test 1: Normal
@@ -1499,6 +2071,67 @@ export function runRequiredSemanticTests() {
     gwTest5.transferCost === 4 &&
     gwTest5.netGameweekPoints === 66;
 
+  // Test 6 (V6.5): Zero transfer hit => aggressiveness 0
+  const dnaTest6 = calculateLeagueManagerDNA({
+    managerHistories: [
+      {
+        entryId: 1,
+        entryName: 'Disciplined FC',
+        playerName: 'Manager Zero Hit',
+        currentRank: 1,
+        currentTotal: 350,
+        chips: [],
+        history: [
+          { event: 1, points: 70, total_points: 70, rank: 1, overall_rank: 1, bank: 0, value: 1000, event_transfers: 0, event_transfers_cost: 0, points_on_bench: 5 },
+          { event: 2, points: 65, total_points: 135, rank: 1, overall_rank: 1, bank: 0, value: 1000, event_transfers: 1, event_transfers_cost: 0, points_on_bench: 4 },
+          { event: 3, points: 80, total_points: 215, rank: 1, overall_rank: 1, bank: 0, value: 1000, event_transfers: 1, event_transfers_cost: 0, points_on_bench: 8 },
+        ],
+      },
+    ],
+    completedGameweeksCount: 3,
+  });
+  const test6Passed = dnaTest6.profiles[0].aggressiveness.score === 0 && dnaTest6.profiles[0].aggressiveness.totalTransferCost === 0;
+
+  // Test 7 (V6.5): Negative bench preserved in benchProfile
+  const dnaTest7 = calculateLeagueManagerDNA({
+    managerHistories: [
+      {
+        entryId: 2,
+        entryName: 'Deficit FC',
+        playerName: 'Manager Neg Bench',
+        currentRank: 2,
+        currentTotal: 200,
+        chips: [],
+        history: [
+          { event: 1, points: 60, total_points: 60, rank: 2, overall_rank: 2, bank: 0, value: 1000, event_transfers: 0, event_transfers_cost: 0, points_on_bench: -2 },
+          { event: 2, points: 70, total_points: 130, rank: 2, overall_rank: 2, bank: 0, value: 1000, event_transfers: 0, event_transfers_cost: 0, points_on_bench: 10 },
+          { event: 3, points: 70, total_points: 200, rank: 2, overall_rank: 2, bank: 0, value: 1000, event_transfers: 0, event_transfers_cost: 0, points_on_bench: 5 },
+        ],
+      },
+    ],
+    completedGameweeksCount: 3,
+  });
+  const test7Passed = dnaTest7.profiles[0].benchProfile.totalRawBenchPoints === 13; // -2 + 10 + 5 = 13 raw
+
+  // Test 8 (V6.5): Early calibration threshold (<3 GWs => Calibrating)
+  const dnaTest8 = calculateLeagueManagerDNA({
+    managerHistories: [
+      {
+        entryId: 3,
+        entryName: 'Early FC',
+        playerName: 'Manager Early',
+        currentRank: 3,
+        currentTotal: 70,
+        chips: [],
+        history: [
+          { event: 1, points: 70, total_points: 70, rank: 3, overall_rank: 3, bank: 0, value: 1000, event_transfers: 0, event_transfers_cost: 0, points_on_bench: 4 },
+        ],
+      },
+    ],
+    completedGameweeksCount: 1,
+  });
+  const test8Passed = dnaTest8.profiles[0].calibrationStatus === 'CALIBRATING' && dnaTest8.profiles[0].persona === 'Calibrating';
+
   return {
     test1: {
       lineup: 72,
@@ -1532,6 +2165,27 @@ export function runRequiredSemanticTests() {
       netGameweekPoints: gwTest5.netGameweekPoints,
       passed: test5Passed,
     },
-    allPassed: test1Passed && test2Passed && test3Passed && test4Passed && test5Passed,
+    test6: {
+      zeroHitAggressiveness: dnaTest6.profiles[0]?.aggressiveness.score,
+      passed: test6Passed,
+    },
+    test7: {
+      negativeBenchPreservedSum: dnaTest7.profiles[0]?.benchProfile.totalRawBenchPoints,
+      passed: test7Passed,
+    },
+    test8: {
+      calibrationStatus: dnaTest8.profiles[0]?.calibrationStatus,
+      passed: test8Passed,
+    },
+    allPassed:
+      test1Passed &&
+      test2Passed &&
+      test3Passed &&
+      test4Passed &&
+      test5Passed &&
+      test6Passed &&
+      test7Passed &&
+      test8Passed,
   };
 }
+

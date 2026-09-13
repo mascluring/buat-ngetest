@@ -1,8 +1,25 @@
 'use client';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
-import { ArrowLeft, RefreshCw, Sparkles, Trophy, TrendingUp, Shield, BarChart2, Award, ArrowLeftRight } from 'lucide-react';
+import { useEffect, useState, useMemo } from 'react';
+import {
+  ArrowLeft,
+  RefreshCw,
+  Sparkles,
+  Trophy,
+  TrendingUp,
+  Shield,
+  BarChart2,
+  Award,
+  ArrowLeftRight,
+  Compass,
+  Flame,
+  Radar,
+  Crown,
+  Layers,
+  Activity,
+} from 'lucide-react';
 import { getPlayerBreakdownRows } from '@/lib/player-points';
+import { calculateLeagueManagerDNA, type ManagerDNAProfile } from '@/lib/league-analytics';
 
 const fmt = (n: number) => new Intl.NumberFormat('id-ID').format(n);
 const initials = (name: string) => name.split(' ').filter(Boolean).map(x => x[0]).slice(0, 2).join('').toUpperCase();
@@ -13,6 +30,7 @@ export default function ManagerDetail({ params }: { params: { id: string } }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedPlayer, setSelectedPlayer] = useState<any>(null);
+  const [leagueInsights, setLeagueInsights] = useState<any>(null);
 
   const closePlayerPopup = () => setSelectedPlayer(null);
 
@@ -20,10 +38,18 @@ export default function ManagerDetail({ params }: { params: { id: string } }) {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`/api/manager/${id}`, { cache: 'no-store' });
+      const [res, insightsRes] = await Promise.all([
+        fetch(`/api/manager/${id}`, { cache: 'no-store' }),
+        fetch('/api/league-insights', { cache: 'no-store' }).catch(() => null),
+      ]);
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.error || 'Gagal memuat data manager');
       setData(json);
+
+      if (insightsRes && insightsRes.ok) {
+        const insightsJson = await insightsRes.json().catch(() => null);
+        if (insightsJson?.ok) setLeagueInsights(insightsJson);
+      }
     } catch (err: any) {
       setError(err.message || 'Terjadi kesalahan saat memuat data');
     } finally {
@@ -92,6 +118,18 @@ export default function ManagerDetail({ params }: { params: { id: string } }) {
     pointsPath = pts.map((p: any, i: number) => (i === 0 ? `M ${p.x} ${p.y}` : `L ${p.x} ${p.y}`)).join(' ');
   }
 
+  // V6.5 Manager DNA calculation for this manager
+  const managerDNA: ManagerDNAProfile | null = useMemo(() => {
+    if (!leagueInsights?.managerHistories || leagueInsights.managerHistories.length === 0) {
+      return null;
+    }
+    const res = calculateLeagueManagerDNA({
+      managerHistories: leagueInsights.managerHistories,
+      completedGameweeksCount: leagueInsights.performanceInsights?.summary?.completedGameweeks || 0,
+    });
+    return res.profiles.find((p) => String(p.managerId) === String(id)) || null;
+  }, [leagueInsights, id]);
+
   return (
     <main className="container page-shell py-8">
       <div className="my-4">
@@ -148,6 +186,132 @@ export default function ManagerDetail({ params }: { params: { id: string } }) {
           <div className="text-xl font-black text-rose-400 mt-1">{worstRank ? `#${fmt(worstRank)}` : '—'}</div>
         </div>
       </div>
+
+      {/* V6.5 MANAGER DNA & PLAYSTYLE PROFILE */}
+      {managerDNA && (
+        <section className="card p-6 my-6 bg-slate-900/90 border-slate-700">
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+            <div>
+              <div className="section-kicker">V6.5 MANAGER DNA & PLAYSTYLE PROFILE</div>
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <Compass size={22} className="text-amber-400" /> Profil Karakter Manajer
+              </h2>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="px-3 py-1 rounded-lg text-xs font-bold border bg-amber-950/80 text-amber-300 border-amber-500/40">
+                {managerDNA.personaTitle}
+              </span>
+              {managerDNA.calibrationStatus === 'CALIBRATING' && (
+                <span className="px-2 py-0.5 rounded text-[10px] bg-slate-800 text-slate-400 border border-slate-700">
+                  Kalibrasi ({managerDNA.sampleSize.completedGameweeks}/3 GW)
+                </span>
+              )}
+            </div>
+          </div>
+
+          <p className="text-sm text-slate-300 mb-6 bg-slate-950/50 p-3.5 rounded-xl border border-slate-800">
+            {managerDNA.personaDescription}
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Pillar 1: Aggressiveness */}
+            <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-slate-400 font-semibold uppercase flex items-center gap-1.5">
+                  <Flame size={14} className="text-rose-400" /> Aggressiveness
+                </span>
+                <span className="text-sm font-bold text-rose-400 font-mono">
+                  {managerDNA.aggressiveness.score}/100
+                </span>
+              </div>
+              <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden mb-2">
+                <div
+                  className="h-full bg-gradient-to-r from-rose-500 to-amber-500 rounded-full"
+                  style={{ width: `${managerDNA.aggressiveness.score}%` }}
+                />
+              </div>
+              <div className="text-[11px] text-slate-400">
+                Total Transfer Cost: <strong className="text-slate-200">-{managerDNA.aggressiveness.totalTransferCost} pts</strong>
+              </div>
+              <div className="text-[10px] text-slate-500 mt-0.5">
+                Eligible GWs: {managerDNA.aggressiveness.eligibleGWsCount} (non-chip)
+              </div>
+            </div>
+
+            {/* Pillar 2: Differential Affinity */}
+            <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-slate-400 font-semibold uppercase flex items-center gap-1.5">
+                  <Radar size={14} className="text-cyan-400" /> Differential
+                </span>
+                <span className="text-sm font-bold text-cyan-400 font-mono">
+                  {managerDNA.differentialAffinity.score}/100
+                </span>
+              </div>
+              <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden mb-2">
+                <div
+                  className="h-full bg-gradient-to-r from-teal-500 to-cyan-400 rounded-full"
+                  style={{ width: `${managerDNA.differentialAffinity.score}%` }}
+                />
+              </div>
+              <div className="text-[11px] text-slate-400">
+                Pemain Diferensial: <strong className="text-slate-200">{managerDNA.differentialAffinity.differentialCount}</strong> / 15
+              </div>
+              <div className="text-[10px] text-slate-500 mt-0.5">
+                Template Exposure: {managerDNA.differentialAffinity.templateExposure}%
+              </div>
+            </div>
+
+            {/* Pillar 3: Captaincy Boldness */}
+            <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-slate-400 font-semibold uppercase flex items-center gap-1.5">
+                  <Crown size={14} className="text-amber-400" /> Boldness
+                </span>
+                <span className="text-sm font-bold text-amber-400 font-mono">
+                  {managerDNA.captaincyBoldness.score}/100
+                </span>
+              </div>
+              <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden mb-2">
+                <div
+                  className="h-full bg-gradient-to-r from-amber-500 to-yellow-400 rounded-full"
+                  style={{ width: `${managerDNA.captaincyBoldness.score}%` }}
+                />
+              </div>
+              <div className="text-[11px] text-slate-400 truncate">
+                Kapten Terkini: <strong className="text-slate-200">{managerDNA.captaincyBoldness.currentCaptainName}</strong>
+              </div>
+              <div className="text-[10px] text-slate-500 mt-0.5">
+                Ownership Kapten: {managerDNA.captaincyBoldness.captainLeagueOwnership}%
+              </div>
+            </div>
+
+            {/* Pillar 4: Bench Pain Ratio */}
+            <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-slate-400 font-semibold uppercase flex items-center gap-1.5">
+                  <Layers size={14} className="text-purple-400" /> Bench Profile
+                </span>
+                <span className="text-sm font-bold text-purple-400 font-mono">
+                  {managerDNA.benchProfile.painRatio !== null ? `${managerDNA.benchProfile.painRatio}%` : '—'}
+                </span>
+              </div>
+              <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden mb-2">
+                <div
+                  className="h-full bg-purple-500 rounded-full"
+                  style={{ width: `${managerDNA.benchProfile.painRatio ?? 0}%` }}
+                />
+              </div>
+              <div className="text-[11px] text-slate-400">
+                Total Poin Bench: <strong className="text-slate-200">{managerDNA.benchProfile.totalRawBenchPoints} pts</strong>
+              </div>
+              <div className="text-[10px] text-slate-500 mt-0.5">
+                GW Dianalisis: {managerDNA.benchProfile.eligibleBenchGWsCount} (non-BB)
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* MANAGER PERFORMANCE INSIGHTS */}
       <section className="card p-6 my-6 bg-slate-900/90 border-slate-700">
